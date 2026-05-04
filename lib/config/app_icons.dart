@@ -1,0 +1,42 @@
+class AppIcons {
+  static const _png = 'assets/images/';
+  static const _svg = 'assets/svg/';
+  static const icLogo = '${_png}applogo.png';
+  static const icFacebook = '${_png}facebook.png';
+  static const icGoogle = '${_png}google.png';
+  static const icLaptop = '${_png}laptop.png';
+  static const icAilogin = '${_png}login.png';
+  static const icOnboarding1 = '${_png}onboarding1.png';
+  static const icOnboarding2 = '${_png}onboarding2.png';
+  static const icOnboarding3 = '${_png}onboarding3.png';
+  static const icCup = '${_png}cup.png';
+  static const icRocket = '${_png}rocket.png';
+  static const icClipboard = '${_png}clipboard.png';
+  static const icMic2 = '${_png}mic2.png';
+  static const icMic = '${_png}mic.png';
+  static const icMyphoto = '${_png}myphoto.png';
+  static const icAi = '${_png}ai.png';
+  static const welcome3d = '${_png}Group.png';
+  static const icHome = '${_svg}ic_home.svg';
+  static const icPerson = '${_svg}ic_person.svg';
+  static const icPlay = '${_svg}ic_play.svg';
+  static const icArrow = '${_svg}ic_arrow.svg';
+  static const icSheild = '${_svg}ic_sheild.svg';
+  static const icGloble = '${_svg}ic_globle.svg';
+  static const icBell = '${_svg}ic_bell.svg';
+  static const icLogout = '${_svg}ic_logout.svg';
+  static const icMessage = '${_svg}ic_messages.svg';
+  static const icUser = '${_svg}ic_user.svg';
+  static const icHistory = '${_svg}ic_history.svg';
+  static const icProgress = '${_svg}ic_progress.svg';
+  static const icEdit = '${_svg}ic_edit.svg';
+  static const icProfile = '${_png}profileUser.png';
+  static const icPosition = '${_svg}ic_position.svg';
+  static const icWork = '${_svg}ic_work.svg';
+  static const lock = '${_svg}ic_lock.svg';
+  static const eye = '${_svg}ic_eye.svg';
+  static const email = '${_svg}ic_email.svg';
+
+  static const icAdd = '${_svg}ic_add.svg';
+  static const icFavorite = '${_svg}ic_favorite.svg';
+}
