@@ -1,0 +1,39 @@
+from flask_marshmallow import Marshmallow
+
+ma = Marshmallow()
+
+from .user_schema import (
+    UserSchema, 
+    UserRegisterSchema, 
+    UserLoginSchema, 
+    UserUpdateSchema,
+    SessionSchema,
+    JobPositionSchema,      
+    SkillSchema,
+    SessionCreateSchema,
+    SessionQuestionResponseSchema,
+    SessionStateSchema,
+    SessionCancelResponseSchema,
+    SessionListSchema,
+    AnswerStartSchema,
+    AnswerStartResponseSchema,
+    AnswerDetailSchema,
+    QuestionDetailSchema,
+    SessionAnswersListSchema,
+    SessionQuestionsListSchema,
+    SessionCompleteResponseSchema,
+    SessionReportSchema,
+    QuestionSchema,
+    AudioAnswerFileSchema,
+    AudioAnswerFormSchema,
+    VideoAnalysisSchema, 
+    VideoResponseSchema,
+    SessionFinalizeSchema,
+    ChunkUploadFormSchema,
+    ChunkUploadFileSchema,
+    ChunkResponseSchema,
+    BaselineUploadFileSchema,
+    BaselineResponseSchema,
+    AnswerFinalizeSchema,
+    AnswerFinalizeResponseSchema
+)

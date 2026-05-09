@@ -1,0 +1,44 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Environment secrets (CRITICAL: keep your OpenAI API keys off GitHub)
+.env
+
+# Database (SQLAlchemy/SQLite)
+*.db
+instance/
+
+# Application Uploads & Media
+# We ignore the contents, but keep the folder structure
+app/uploads/*
+app/voices/*
+!app/uploads/.gitkeep
+!app/voices/.gitkeep
+
+# Project-specific generated files
+output_video.mp4
+images/
+graphs/
+
+# OS & Editor specific
+.DS_Store
+.vscode/
+.idea/
+
+# Pip cache / temp files
+tmp/
+
+# Voice models
+voices/*.onnx
+voices/*.onnx.json
+
+# Test outputs
+*.wav
