@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:ai_interview/pages/splash_screen.dart';
 import 'package:ai_interview/pages/welcome_page.dart';
 import 'package:ai_interview/pages/home_page.dart';
@@ -13,7 +14,7 @@ import 'package:ai_interview/pages/progress_page.dart';
 import 'package:ai_interview/pages/history_page.dart';
 
 class AppRoutes {
-  static final pages = {
+  static final Map<String, Widget Function(BuildContext)> pages = {
     '/': (context) => const SplashScreen(),
     '/welcome': (context) => const WelcomePage(),
     '/onboarding1': (context) => const OnboardingPage(),
@@ -24,7 +25,11 @@ class AppRoutes {
     '/home': (context) => const HomePage(),
     '/main': (context) => const HomePage(),
     '/profile': (context) => const ProfilePage(),
-    '/profileSetup': (context) => const ProfileSetupPage(),
+    '/profileSetup': (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final name = (args is Map<String, dynamic>) ? args['name'] as String? : null;
+      return ProfileSetupPage(initialUsername: name);
+    },
     '/settings': (context) => const SettingsPage(),
     '/progress': (context) => const ProgressPage(),
     '/history': (context) => const HistoryPage(),

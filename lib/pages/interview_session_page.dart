@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:ai_interview/pages/feedback_page.dart';
 import 'package:ai_interview/config/app_routes.dart';
+import 'package:ai_interview/services/audio_stream_handler.dart';
+import 'package:ai_interview/services/ai_speech_handler.dart';
 import 'package:ai_interview/services/interview_service.dart';
 
 class InterviewSessionPage extends StatefulWidget {
@@ -28,6 +31,8 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
   int _timerSeconds = _questionDuration;
   bool _isRecording = false;
   bool _isUploading = false;
+  bool _isWaitingForAi = false;
+  bool _isSpeaking = false;
   Timer? _timer;
 
   // ── Camera ──────────────────────────────────────────────────────────
@@ -35,19 +40,60 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
   bool _isCameraReady = false;
 
   // ── Session data ────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _recordedAnswers = [];
+  late final AudioStreamHandler _audioStreamHandler;
+  late final AiSpeechHandler _aiSpeechHandler;
+  final BytesBuilder _audioBytesBuffer = BytesBuilder(copy: false);
+  String _currentAiQuestion = 'Preparing your first interview question...';
+  String _lastSpokenText = '';
 
   @override
   void initState() {
     super.initState();
+    _aiSpeechHandler = createAiSpeechHandler();
+    _audioStreamHandler = createAudioStreamHandler();
     _initCamera();
+    _loadCurrentQuestion();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _cameraController?.dispose();
+    _aiSpeechHandler.stop();
+    _audioStreamHandler.dispose();
     super.dispose();
+  }
+
+  void _loadCurrentQuestion() {
+    if (!mounted) return;
+    final question = _currentQuestionData();
+    final text = (question['text'] ?? '')
+            .toString()
+            .trim()
+            .isNotEmpty
+        ? question['text'].toString()
+        : 'No interview question is available for this session yet.';
+    setState(() => _currentAiQuestion = text);
+    _speakAiQuestionIfNeeded(text);
+  }
+
+  void _speakAiQuestionIfNeeded(String text) {
+    if (!mounted) return;
+    if (_isRecording || _isUploading || _isWaitingForAi) return;
+    if (text.trim().isEmpty) return;
+    if (_lastSpokenText == text) return;
+
+    _lastSpokenText = text;
+    _aiSpeechHandler.stop();
+    setState(() => _isSpeaking = true);
+
+    unawaited(_aiSpeechHandler.speak(text).then((_) {
+      if (!mounted) return;
+      setState(() => _isSpeaking = false);
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() => _isSpeaking = false);
+    }));
   }
 
   // ── Camera init ────────────────────────────────────────────────────
@@ -100,8 +146,10 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
       setState(() {
         _currentQuestion++;
         _isRecording = false;
+        _isWaitingForAi = false;
         _timerSeconds = _questionDuration;
       });
+      _loadCurrentQuestion();
       // Auto-start recording for the next question
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
@@ -118,46 +166,118 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
   }
 
   Future<void> _startRecording() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+    if (_isUploading || _isWaitingForAi) {
       return;
     }
     try {
-      await _cameraController!.startVideoRecording();
+      _aiSpeechHandler.stop();
+      if (mounted) setState(() => _isSpeaking = false);
+      _audioBytesBuffer.clear();
+
+      await _audioStreamHandler.start(
+        onChunk: (Uint8List chunk) {
+          _audioBytesBuffer.add(chunk);
+        },
+      );
       if (mounted) {
-        setState(() => _isRecording = true);
+        setState(() {
+          _isRecording = true;
+          _isWaitingForAi = false;
+        });
         _startTimer();
       }
     } catch (e) {
       debugPrint('Error starting recording: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Microphone start failed: $e')),
+        );
+      }
     }
   }
 
   Future<void> _stopRecordingAndUpload() async {
-    if (_cameraController == null || !_cameraController!.value.isRecordingVideo) {
+    if (!_isRecording) {
       return;
     }
 
     _stopTimer();
     setState(() {
       _isRecording = false;
+      _isWaitingForAi = true;
     });
 
     try {
-      final videoFile = await _cameraController!.stopVideoRecording();
+      await _audioStreamHandler.stop();
+      final pcmBytes = _audioBytesBuffer.takeBytes();
+      if (pcmBytes.isEmpty) {
+        if (mounted) {
+          setState(() => _isWaitingForAi = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No audio was captured. Please try again.')),
+          );
+        }
+        return;
+      }
 
-      // Get current question ID from AI questions list
-      final questionData = widget.questions[_currentQuestion - 1];
-      final questionId = questionData['id'] ?? _currentQuestion;
+      // Backend STT expects a container format (wav recommended). On mobile/desktop
+      // we capture PCM16, so we wrap it into a WAV file before upload.
+      final wavBytes = _pcm16ToWav(
+        pcmBytes,
+        sampleRate: 16000,
+        channels: 1,
+      );
 
-      _recordedAnswers.add({
-        'questionId': questionId,
-        'videoFile': videoFile,
-      });
+      await _submitCurrentAnswer(wavBytes);
     } catch (e) {
-      debugPrint('Error capturing video: $e');
+      debugPrint('Error stopping audio stream: $e');
+      if (mounted) {
+        setState(() => _isWaitingForAi = false);
+      }
+    }
+  }
+
+  Future<void> _submitCurrentAnswer(Uint8List audioBytes) async {
+    if (widget.questions.isEmpty) return;
+
+    final questionData = _currentQuestionData();
+    final rawQuestionId = questionData['id'];
+    final questionId = rawQuestionId is int
+        ? rawQuestionId
+        : int.tryParse(rawQuestionId?.toString() ?? '') ?? _currentQuestion;
+
+    setState(() => _isUploading = true);
+    try {
+      final res = await InterviewService.uploadAudioBytesAnswer(
+        sessionId: widget.sessionId,
+        questionId: questionId,
+        audioBytes: audioBytes,
+        filename: 'answer.wav',
+        questionText: questionData['text']?.toString() ?? '',
+      );
+
+      if (res['success'] != true && mounted) {
+        setState(() {
+          _isWaitingForAi = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Answer submission failed: ${res['message']}')),
+        );
+      } else if (mounted) {
+        _advanceToNextQuestion();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isWaitingForAi = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Answer upload error: $e')),
+        );
+      }
     } finally {
       if (mounted) {
-        _advanceToNextQuestion();
+        setState(() => _isUploading = false);
       }
     }
   }
@@ -166,33 +286,12 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
     setState(() => _isUploading = true);
 
     try {
-      // 1. Upload all answers
-      for (var answer in _recordedAnswers) {
-        final videoFile = answer['videoFile'] as XFile;
-        final questionId = answer['questionId'] as int;
-
-        final res = await InterviewService.uploadVideoAnswer(
-          sessionId: widget.sessionId,
-          questionId: questionId,
-          videoFile: videoFile,
-        );
-
-        if (res['success'] != true && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    Text('Upload failed for Q$questionId: ${res['message']}')),
-          );
-        }
-      }
-
-      // 2. End session to mark it completed
       await InterviewService.endSession(widget.sessionId);
     } catch (e) {
-      debugPrint('Error uploading videos: $e');
+      debugPrint('Error finalizing session: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload error: $e')),
+          SnackBar(content: Text('Finalize error: $e')),
         );
       }
     } finally {
@@ -209,11 +308,23 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
   }
 
   void _toggleRecording() {
+    if (_isUploading || _isWaitingForAi) return;
     if (_isRecording) {
       _stopRecordingAndUpload();
     } else {
       _startRecording();
     }
+  }
+
+  Map<String, dynamic> _currentQuestionData() {
+    if (widget.questions.isEmpty) {
+      return const {
+        'id': 1,
+        'type': 'technical',
+        'text': 'Tell me about your experience and why you are a fit for this role.',
+      };
+    }
+    return widget.questions[_currentQuestion - 1] as Map<String, dynamic>;
   }
 
   String _formatTime(int seconds) {
@@ -290,7 +401,10 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
                       width: 163,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          if (_isRecording) {
+                            await _stopRecordingAndUpload();
+                          }
                           Navigator.of(context).pushNamedAndRemoveUntil(
                             AppRoutes.home,
                             (route) => false,
@@ -359,9 +473,7 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
   // ── Build ──────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (widget.questions.isEmpty) return const SizedBox();
-
-    final totalQuestions = widget.questions.length;
+    final totalQuestions = widget.questions.isEmpty ? 1 : widget.questions.length;
     final progress = _currentQuestion / totalQuestions;
 
     return Stack(
@@ -411,8 +523,10 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
                   const SizedBox(height: 16),
                   Text(
                     _currentQuestion >= totalQuestions
-                        ? 'Analyzing your interview...'
-                        : 'Saving response...',
+                        ? 'Finalizing your interview...'
+                        : (_isWaitingForAi
+                            ? 'Submitting your answer...'
+                            : 'Saving response...'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -598,9 +712,9 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
         children: [
           Row(
             children: [
-              Text(
-                'Question $_currentQuestion',
-                style: const TextStyle(
+              const Text(
+                'Live Interview Question',
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1E83FF),
@@ -617,15 +731,7 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  (widget.questions[_currentQuestion - 1]['type'] ?? 'General')
-                          .toString()
-                          .toUpperCase()
-                          .substring(0, 1) +
-                      (widget.questions[_currentQuestion - 1]['type'] ??
-                              'General')
-                          .toString()
-                          .substring(1)
-                          .toLowerCase(),
+                  _currentQuestionTypeLabel(),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -656,14 +762,30 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            widget.questions[_currentQuestion - 1]['question'] ??
-                'No question text provided.',
+            _currentAiQuestion,
             style: const TextStyle(
                 fontSize: 15, color: Colors.black87, height: 1.5),
           ),
         ],
       ),
     );
+  }
+
+  String _currentQuestionTypeLabel() {
+    final current = _currentQuestionData();
+    final rawType = (current['type'] ?? current['question_type'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+
+    if (rawType == 'technical') return 'Technical';
+    if (rawType == 'behavioral' || rawType == 'behavioural') {
+      return 'Behavioral';
+    }
+    if (rawType == 'situational') return 'Situational';
+
+    // Product requirement: never show "General" label in the interview UI.
+    return 'Technical';
   }
 
   // ── Recording button ───────────────────────────────────────────────
@@ -686,7 +808,7 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
         ],
       ),
       child: ElevatedButton(
-        onPressed: _toggleRecording,
+        onPressed: (_isUploading || _isWaitingForAi) ? null : _toggleRecording,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -704,7 +826,9 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
             ),
             const SizedBox(width: 12),
             Text(
-              _isRecording ? 'Stop Recording' : 'Start Recording',
+              _isWaitingForAi
+                  ? 'Processing...'
+                  : (_isRecording ? 'Stop Recording' : 'Start Recording'),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -715,5 +839,58 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
         ),
       ),
     );
+  }
+
+  Uint8List _pcm16ToWav(
+    Uint8List pcmData, {
+    required int sampleRate,
+    required int channels,
+  }) {
+    // Minimal RIFF/WAVE header for PCM 16-bit little-endian.
+    const int bitsPerSample = 16;
+    final int byteRate = sampleRate * channels * (bitsPerSample ~/ 8);
+    final int blockAlign = channels * (bitsPerSample ~/ 8);
+    final int dataLength = pcmData.lengthInBytes;
+    final int fileLength = 44 + dataLength;
+
+    final buffer = BytesBuilder(copy: false);
+
+    void writeAscii(String s) => buffer.add(Uint8List.fromList(s.codeUnits));
+    void writeUint32LE(int v) {
+      buffer.add(Uint8List.fromList([
+        v & 0xFF,
+        (v >> 8) & 0xFF,
+        (v >> 16) & 0xFF,
+        (v >> 24) & 0xFF,
+      ]));
+    }
+
+    void writeUint16LE(int v) {
+      buffer.add(Uint8List.fromList([
+        v & 0xFF,
+        (v >> 8) & 0xFF,
+      ]));
+    }
+
+    writeAscii('RIFF');
+    writeUint32LE(fileLength - 8);
+    writeAscii('WAVE');
+
+    // fmt chunk
+    writeAscii('fmt ');
+    writeUint32LE(16); // PCM
+    writeUint16LE(1); // AudioFormat = PCM
+    writeUint16LE(channels);
+    writeUint32LE(sampleRate);
+    writeUint32LE(byteRate);
+    writeUint16LE(blockAlign);
+    writeUint16LE(bitsPerSample);
+
+    // data chunk
+    writeAscii('data');
+    writeUint32LE(dataLength);
+    buffer.add(pcmData);
+
+    return buffer.takeBytes();
   }
 }

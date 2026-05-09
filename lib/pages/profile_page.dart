@@ -56,11 +56,13 @@ class _ProfilePageState extends State<ProfilePage> {
     if (mounted) {
       if (userProfile != null) {
         final resume = userProfile['resume'] as String?;
+        final jobField = userProfile['job_field'] as String?;
+        final targetRole = userProfile['target_role'] as String?;
         setState(() {
           _emailController.text = userProfile['email'] ?? '';
           _usernameController.text = userProfile['name'] ?? userName;
-          _selectedIndustry = _resumeIndustry(resume);
-          _selectedTargetPosition = _resumeTargetRole(resume);
+          _selectedIndustry = jobField ?? _resumeIndustry(resume);
+          _selectedTargetPosition = targetRole ?? _resumeTargetRole(resume);
           _selectedExperience = userProfile['experience_level'];
         });
       } else {

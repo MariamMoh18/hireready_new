@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 import 'user_service.dart';
@@ -11,17 +12,16 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await ApiService.post(
-        '/auth/register',
+      final response = await _postWithPaths(
+        const ['/auth/register', '/register'],
         body: {
           'name': name,
           'email': email,
           'password': password,
         },
-        auth: false,
       );
-      final body = jsonDecode(response.body);
-      final success = response.statusCode == 201;
+      final body = _decodeBody(response.body);
+      final success = response.statusCode == 201 || response.statusCode == 200;
       final message = body['message'] ??
           (success ? 'Registered successfully' : 'Registration failed');
 
@@ -41,19 +41,18 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await ApiService.post(
-        '/auth/login',
+      final response = await _postWithPaths(
+        const ['/auth/login', '/login'],
         body: {'email': email, 'password': password},
-        auth: false,
       );
-      final body = jsonDecode(response.body);
+      final body = _decodeBody(response.body);
 
       if (response.statusCode == 200 &&
           body['access_token'] is String &&
           body['user'] is Map<String, dynamic>) {
         final token = body['access_token'] as String;
         final user = body['user'] as Map<String, dynamic>;
-        final userId = user['id'] as int? ?? 0;
+        final userId = _toInt(user['id']);
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', token);
@@ -86,7 +85,11 @@ class AuthService {
   // ── Logout ─────────────────────────────────────────────────────────
   static Future<void> logout() async {
     try {
-      await ApiService.post('/auth/logout');
+      await _postWithPaths(
+        const ['/auth/logout', '/logout'],
+        body: const {},
+        auth: true,
+      );
     } catch (_) {}
     await ApiService.clearToken();
   }
@@ -105,5 +108,38 @@ class AuthService {
   static Future<int> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('user_id') ?? 0;
+  }
+
+  static Future<http.Response> _postWithPaths(
+    List<String> paths, {
+    required Map<String, dynamic> body,
+    bool auth = false,
+  }) async {
+    http.Response? lastResponse;
+    for (final path in paths) {
+      final res = await ApiService.post(path, body: body, auth: auth);
+      if (res.statusCode == 404) {
+        lastResponse = res;
+        continue;
+      }
+      return res;
+    }
+    return lastResponse ?? await ApiService.post(paths.first, body: body, auth: auth);
+  }
+
+  static Map<String, dynamic> _decodeBody(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (_) {}
+    return <String, dynamic>{};
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }

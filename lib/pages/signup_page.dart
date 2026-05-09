@@ -94,6 +94,7 @@ class _SignUpPageState extends State<SignUpPage> {
         } else {
           Navigator.of(context).pushReplacementNamed(
             AppRoutes.profileSetup,
+            arguments: {'name': name},
           );
         }
       } else {

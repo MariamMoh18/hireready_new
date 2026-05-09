@@ -1,9 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:ai_interview/config/app_routes.dart';
+import 'package:ai_interview/services/interview_service.dart';
 import 'package:ai_interview/widgets/custom_bottom_nav.dart';
 
-class ProgressPage extends StatelessWidget {
+class ProgressPage extends StatefulWidget {
   const ProgressPage({super.key});
+
+  @override
+  State<ProgressPage> createState() => _ProgressPageState();
+}
+
+class _ProgressPageState extends State<ProgressPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  Map<String, dynamic>? _metrics;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMetrics();
+  }
+
+  Future<void> _fetchMetrics() async {
+    setState(() => _isLoading = true);
+    final result = await InterviewService.getDashboardMetrics();
+    if (!mounted) return;
+    if (result['success'] == true) {
+      setState(() {
+        _metrics = result['data'] as Map<String, dynamic>? ?? {};
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _errorMessage =
+            result['message']?.toString() ?? 'Failed to load metrics';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,26 +51,29 @@ class ProgressPage extends StatelessWidget {
               child: _buildAppBar(context),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 4,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    _buildTitleSection(),
-                    const SizedBox(height: 24),
-                    _buildMetricsRow(),
-                    const SizedBox(height: 20),
-                    _buildPerformanceTrendCard(),
-                    const SizedBox(height: 16),
-                    _buildCategoryPerformanceCard(),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
+              child: _isLoading
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator(color: Color(0xFF1E83FF)))
+                  : _errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline,
+                                  color: Colors.red, size: 48),
+                              const SizedBox(height: 12),
+                              Text(_errorMessage!,
+                                  style:
+                                      const TextStyle(color: Colors.black54)),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                  onPressed: _fetchMetrics,
+                                  child: const Text('Retry')),
+                            ],
+                          ),
+                        )
+                      : _buildContent(),
             ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -48,42 +85,90 @@ class ProgressPage extends StatelessWidget {
     );
   }
 
+  Widget _buildContent() {
+    final data = _metrics ?? {};
+    final avgScore = (data['avg_score'] ?? 0).round();
+    final bestScore = (data['best_score'] ?? 0).round();
+    final totalMin = data['total_practice_minutes'] ?? 0;
+    final totalSessions = data['total_sessions'] ?? 0;
+    final trend = (data['performance_trend'] as List<dynamic>?) ?? [];
+    final categories =
+        (data['category_averages'] as Map<String, dynamic>?) ?? {};
+
+    return RefreshIndicator(
+      color: const Color(0xFF1E83FF),
+      onRefresh: _fetchMetrics,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            _buildTitleSection(),
+            const SizedBox(height: 24),
+            _buildMetricsRow(avgScore, bestScore, totalMin, totalSessions),
+            const SizedBox(height: 20),
+            if (trend.isNotEmpty) _buildPerformanceTrendCard(trend),
+            if (trend.isNotEmpty) const SizedBox(height: 16),
+            if (categories.isNotEmpty)
+              _buildCategoryPerformanceCard(categories),
+            if (trend.isEmpty && categories.isEmpty) _buildEmptyState(),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.bar_chart, size: 48, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          const Text(
+            'Complete your first interview to see progress',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15, color: Colors.black54),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAppBar(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Back button
         Container(
           width: 40,
           height: 40,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
+          decoration:
+              const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
           child: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new,
                 size: 18, color: Colors.black54),
             padding: EdgeInsets.zero,
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
           ),
         ),
-        // Settings button
         Container(
           width: 40,
           height: 40,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
+          decoration:
+              const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
           child: IconButton(
             icon: const Icon(Icons.settings_outlined,
                 size: 18, color: Color(0xFF4B5563)),
             padding: EdgeInsets.zero,
-            onPressed: () {
-              Navigator.pushNamed(context, AppRoutes.settings);
-            },
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
           ),
         ),
       ],
@@ -94,25 +179,21 @@ class ProgressPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Progress',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
+        const Text('Progress',
+            style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.black)),
         const SizedBox(height: 4),
-        const Text(
-          'Track your improvement over time',
-          style:
-              TextStyle(fontSize: 14, color: Color.fromARGB(255, 55, 54, 54)),
-        ),
+        const Text('Track your improvement over time',
+            style: TextStyle(
+                fontSize: 14, color: Color.fromARGB(255, 55, 54, 54))),
       ],
     );
   }
 
-  Widget _buildMetricsRow() {
+  Widget _buildMetricsRow(
+      int avgScore, int bestScore, int totalMin, int totalSessions) {
     return Column(
       children: [
         Row(
@@ -120,16 +201,20 @@ class ProgressPage extends StatelessWidget {
             Expanded(
               child: _buildMetricCard(
                 label: 'Avg Score',
-                value: '72',
-                color: Colors.orange,
+                value: avgScore.toString(),
+                color: avgScore >= 70
+                    ? Colors.green
+                    : (avgScore >= 40 ? Colors.orange : Colors.red),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildMetricCard(
                 label: 'Best Score',
-                value: '91',
-                color: Colors.green,
+                value: bestScore.toString(),
+                color: bestScore >= 80
+                    ? Colors.green
+                    : (bestScore >= 50 ? Colors.orange : Colors.red),
               ),
             ),
           ],
@@ -140,7 +225,9 @@ class ProgressPage extends StatelessWidget {
             Expanded(
               child: _buildMetricCard(
                 label: 'Practice Time',
-                value: '4h',
+                value: totalMin >= 60
+                    ? '${(totalMin / 60).floor()}h ${totalMin % 60}m'
+                    : '${totalMin}m',
                 color: const Color(0xFF1E83FF),
               ),
             ),
@@ -148,7 +235,7 @@ class ProgressPage extends StatelessWidget {
             Expanded(
               child: _buildMetricCard(
                 label: 'Session numbers',
-                value: '3',
+                value: totalSessions.toString(),
                 color: const Color(0xFF1E83FF),
               ),
             ),
@@ -170,38 +257,32 @@ class ProgressPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5))
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white)),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white)),
         ],
       ),
     );
   }
 
-  Widget _buildPerformanceTrendCard() {
+  Widget _buildPerformanceTrendCard(List<dynamic> trend) {
+    final points = trend.map((t) => (t['score'] as num).toDouble()).toList();
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -209,30 +290,26 @@ class ProgressPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Performance Trend',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
+          const Text('Performance Trend',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black)),
           const SizedBox(height: 20),
           SizedBox(
             height: 180,
-            child: _buildLineChart(
-              dataPoints: [100, 100],
+            child: _LineChart(
+              dataPoints: points,
               lineColor: Colors.purple,
-              showLegend: false,
+              xLabels: trend.map((t) => t['date']?.toString() ?? '').toList(),
             ),
           ),
         ],
@@ -240,7 +317,11 @@ class ProgressPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryPerformanceCard() {
+  Widget _buildCategoryPerformanceCard(Map<String, dynamic> categories) {
+    final voice = (categories['voice_tone'] as num?)?.toDouble() ?? 0;
+    final facial = (categories['facial_expression'] as num?)?.toDouble() ?? 0;
+    final content = (categories['content_quality'] as num?)?.toDouble() ?? 0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -248,74 +329,69 @@ class ProgressPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Category Performance',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+          const Text('Category Performance',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black)),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 180,
+            child: _BarChart(
+              bars: [
+                _BarData(
+                    label: 'Voice',
+                    value: voice,
+                    color: const Color(0xFF1E83FF)),
+                _BarData(
+                    label: 'Facial',
+                    value: facial,
+                    color: const Color(0xFF7B1FA2)),
+                _BarData(
+                    label: 'Content',
+                    value: content,
+                    color: const Color(0xFF6A1B9A)),
+              ],
             ),
           ),
-          const SizedBox(height: 20),
-          SizedBox(height: 180, child: _buildMultiLineChart()),
-          const SizedBox(height: 16),
-          _buildLegend(),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              'Scores are out of 100',
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildLineChart({
-    required List<double> dataPoints,
-    required Color lineColor,
-    bool showLegend = false,
-  }) {
+class _LineChart extends StatelessWidget {
+  final List<double> dataPoints;
+  final Color lineColor;
+  final List<String> xLabels;
+
+  const _LineChart({
+    required this.dataPoints,
+    required this.lineColor,
+    required this.xLabels,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return CustomPaint(
       size: const Size(double.infinity, 180),
-      painter: _LineChartPainter(dataPoints: dataPoints, lineColor: lineColor),
-    );
-  }
-
-  Widget _buildMultiLineChart() {
-    return CustomPaint(
-      size: const Size(double.infinity, 180),
-      painter: _MultiLineChartPainter(),
-    );
-  }
-
-  Widget _buildLegend() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildLegendItem('Facial', Colors.purple),
-        const SizedBox(width: 20),
-        _buildLegendItem('Voice', const Color(0xFF1E83FF)),
-        const SizedBox(width: 20),
-        _buildLegendItem('Content', const Color(0xFF6A1B9A)),
-      ],
-    );
-  }
-
-  Widget _buildLegendItem(String label, Color color) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
+      painter: _LineChartPainter(
+          dataPoints: dataPoints, lineColor: lineColor, xLabels: xLabels),
     );
   }
 }
@@ -323,8 +399,13 @@ class ProgressPage extends StatelessWidget {
 class _LineChartPainter extends CustomPainter {
   final List<double> dataPoints;
   final Color lineColor;
+  final List<String> xLabels;
 
-  _LineChartPainter({required this.dataPoints, required this.lineColor});
+  _LineChartPainter({
+    required this.dataPoints,
+    required this.lineColor,
+    required this.xLabels,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -334,54 +415,49 @@ class _LineChartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final yAxisLabels = [0, 25, 50, 75, 100];
-    final xAxisLabels = ['#1', '#2'];
+    final labels = xLabels.length >= 2
+        ? xLabels
+        : (dataPoints.length >= 2
+            ? dataPoints.asMap().entries.map((e) => '#${e.key + 1}').toList()
+            : ['#1', '#2']);
     final padding = 40.0;
     final chartWidth = size.width - padding * 2;
     final chartHeight = size.height - padding * 2;
 
-    // Draw Y-axis labels
     final textStyle = const TextStyle(fontSize: 10, color: Colors.grey);
     for (int i = 0; i < yAxisLabels.length; i++) {
       final y = padding + (chartHeight / (yAxisLabels.length - 1)) * i;
-      final textPainter = TextPainter(
+      final tp = TextPainter(
         text: TextSpan(
-          text: yAxisLabels[yAxisLabels.length - 1 - i].toString(),
-          style: textStyle,
-        ),
+            text: yAxisLabels[yAxisLabels.length - 1 - i].toString(),
+            style: textStyle),
         textDirection: TextDirection.ltr,
       );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(0, y - textPainter.height / 2));
+      tp.layout();
+      tp.paint(canvas, Offset(0, y - tp.height / 2));
     }
 
-    // Draw X-axis labels
-    for (int i = 0; i < xAxisLabels.length; i++) {
-      final x = padding + (chartWidth / (xAxisLabels.length - 1)) * i;
-      final textPainter = TextPainter(
-        text: TextSpan(text: xAxisLabels[i], style: textStyle),
+    for (int i = 0; i < labels.length; i++) {
+      final x = labels.length > 1
+          ? padding + (chartWidth / (labels.length - 1)) * i
+          : padding + chartWidth / 2;
+      final tp = TextPainter(
+        text: TextSpan(text: labels[i], style: textStyle),
         textDirection: TextDirection.ltr,
       );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(x - textPainter.width / 2, size.height - padding + 8),
-      );
+      tp.layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, size.height - padding + 8));
     }
 
-    // Draw grid lines
     final gridPaint = Paint()
-      ..color = Colors.grey.withOpacity(0.1)
+      ..color = Colors.grey.withValues(alpha: 0.1)
       ..strokeWidth = 1;
     for (int i = 0; i < yAxisLabels.length; i++) {
       final y = padding + (chartHeight / (yAxisLabels.length - 1)) * i;
       canvas.drawLine(
-        Offset(padding, y),
-        Offset(size.width - padding, y),
-        gridPaint,
-      );
+          Offset(padding, y), Offset(size.width - padding, y), gridPaint);
     }
 
-    // Draw line
     if (dataPoints.length >= 2) {
       final path = Path();
       for (int i = 0; i < dataPoints.length; i++) {
@@ -395,7 +471,6 @@ class _LineChartPainter extends CustomPainter {
       }
       canvas.drawPath(path, paint);
 
-      // Draw points
       final pointPaint = Paint()
         ..color = lineColor
         ..style = PaintingStyle.fill;
@@ -408,108 +483,115 @@ class _LineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) =>
+      oldDelegate.dataPoints != dataPoints || oldDelegate.xLabels != xLabels;
 }
 
-class _MultiLineChartPainter extends CustomPainter {
+class _BarData {
+  final String label;
+  final double value;
+  final Color color;
+  const _BarData(
+      {required this.label, required this.value, required this.color});
+}
+
+class _BarChart extends StatelessWidget {
+  final List<_BarData> bars;
+  const _BarChart({required this.bars});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(double.infinity, 180),
+      painter: _BarChartPainter(bars: bars),
+    );
+  }
+}
+
+class _BarChartPainter extends CustomPainter {
+  final List<_BarData> bars;
+  _BarChartPainter({required this.bars});
+
   @override
   void paint(Canvas canvas, Size size) {
     final yAxisLabels = [0, 25, 50, 75, 100];
-    final xAxisLabels = ['#1', '#2'];
-    final padding = 40.0;
-    final chartWidth = size.width - padding * 2;
-    final chartHeight = size.height - padding * 2;
+    final paddingL = 36.0;
+    final paddingR = 16.0;
+    final paddingT = 8.0;
+    final paddingB = 28.0;
+    final chartW = size.width - paddingL - paddingR;
+    final chartH = size.height - paddingT - paddingB;
 
-    // Draw Y-axis labels
-    final textStyle = const TextStyle(fontSize: 10, color: Colors.grey);
+    final textStyle = TextStyle(fontSize: 10, color: Colors.grey[600]);
+    final gridPaint = Paint()
+      ..color = Colors.grey.withValues(alpha: 0.15)
+      ..strokeWidth = 1;
+
+    // Grid lines & Y labels
     for (int i = 0; i < yAxisLabels.length; i++) {
-      final y = padding + (chartHeight / (yAxisLabels.length - 1)) * i;
-      final textPainter = TextPainter(
+      final y = paddingT +
+          (chartH / (yAxisLabels.length - 1)) * (yAxisLabels.length - 1 - i);
+      canvas.drawLine(
+          Offset(paddingL, y), Offset(size.width - paddingR, y), gridPaint);
+      final tp = TextPainter(
+        text: TextSpan(text: yAxisLabels[i].toString(), style: textStyle),
+        textDirection: TextDirection.ltr,
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(paddingL - tp.width - 4, y - tp.height / 2));
+    }
+
+    if (bars.isEmpty) return;
+
+    final barCount = bars.length;
+    final totalGaps = barCount + 1;
+    final gap = chartW / totalGaps * 0.4;
+    final barWidth = (chartW - gap * totalGaps) / barCount;
+
+    for (int i = 0; i < barCount; i++) {
+      final bar = bars[i];
+      final barH = (chartH * bar.value / 100).clamp(0.0, chartH);
+      final x = paddingL + gap + i * (barWidth + gap);
+      final y = paddingT + chartH - barH;
+
+      final radius = Radius.circular(6);
+      final rrect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(x, y, barWidth, barH),
+        topLeft: radius,
+        topRight: radius,
+      );
+      canvas.drawRRect(rrect, Paint()..color = bar.color);
+
+      // Value label on top of bar
+      final valTp = TextPainter(
         text: TextSpan(
-          text: yAxisLabels[yAxisLabels.length - 1 - i].toString(),
-          style: textStyle,
+          text: '${bar.value.round()}',
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.bold, color: bar.color),
         ),
         textDirection: TextDirection.ltr,
       );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(0, y - textPainter.height / 2));
-    }
+      valTp.layout();
+      valTp.paint(canvas,
+          Offset(x + barWidth / 2 - valTp.width / 2, y - valTp.height - 4));
 
-    // Draw X-axis labels
-    for (int i = 0; i < xAxisLabels.length; i++) {
-      final x = padding + (chartWidth / (xAxisLabels.length - 1)) * i;
-      final textPainter = TextPainter(
-        text: TextSpan(text: xAxisLabels[i], style: textStyle),
+      // X label below bar
+      final lblTp = TextPainter(
+        text: TextSpan(text: bar.label, style: textStyle),
         textDirection: TextDirection.ltr,
       );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(x - textPainter.width / 2, size.height - padding + 8),
-      );
-    }
-
-    // Draw grid lines
-    final gridPaint = Paint()
-      ..color = Colors.grey.withOpacity(0.1)
-      ..strokeWidth = 1;
-    for (int i = 0; i < yAxisLabels.length; i++) {
-      final y = padding + (chartHeight / (yAxisLabels.length - 1)) * i;
-      canvas.drawLine(
-        Offset(padding, y),
-        Offset(size.width - padding, y),
-        gridPaint,
-      );
-    }
-
-    // Draw three lines: Facial (purple ~92), Voice (blue ~87), Content (dark purple ~97)
-    final lines = [
-      {
-        'points': [92.0, 92.0],
-        'color': Colors.purple,
-      },
-      {
-        'points': [87.0, 87.0],
-        'color': const Color(0xFF1E83FF),
-      },
-      {
-        'points': [97.0, 97.0],
-        'color': const Color(0xFF6A1B9A),
-      },
-    ];
-
-    for (var line in lines) {
-      final points = line['points'] as List<double>;
-      final color = line['color'] as Color;
-      final paint = Paint()
-        ..color = color
-        ..strokeWidth = 3
-        ..style = PaintingStyle.stroke;
-
-      final path = Path();
-      for (int i = 0; i < points.length; i++) {
-        final x = padding + (chartWidth / (points.length - 1)) * i;
-        final y = padding + chartHeight - (chartHeight * points[i] / 100);
-        if (i == 0) {
-          path.moveTo(x, y);
-        } else {
-          path.lineTo(x, y);
-        }
-      }
-      canvas.drawPath(path, paint);
-
-      // Draw points
-      final pointPaint = Paint()
-        ..color = color
-        ..style = PaintingStyle.fill;
-      for (int i = 0; i < points.length; i++) {
-        final x = padding + (chartWidth / (points.length - 1)) * i;
-        final y = padding + chartHeight - (chartHeight * points[i] / 100);
-        canvas.drawCircle(Offset(x, y), 4, pointPaint);
-      }
+      lblTp.layout();
+      lblTp.paint(canvas,
+          Offset(x + barWidth / 2 - lblTp.width / 2, paddingT + chartH + 6));
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
+    if (oldDelegate.bars.length != bars.length) return true;
+    for (int i = 0; i < bars.length; i++) {
+      if (oldDelegate.bars[i].value != bars[i].value) return true;
+    }
+    return false;
+  }
 }

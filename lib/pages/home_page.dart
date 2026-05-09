@@ -22,6 +22,8 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _progress;
 
   String _industryFromProfile() {
+    final direct = _profile?['job_field']?.toString().trim();
+    if (direct != null && direct.isNotEmpty) return direct;
     final resume = _profile?['resume'] as String?;
     if (resume == null || resume.trim().isEmpty) return 'Not Set';
     final parts =
@@ -30,6 +32,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _targetRoleFromProfile() {
+    final direct = _profile?['target_role']?.toString().trim();
+    if (direct != null && direct.isNotEmpty) return direct;
     final resume = _profile?['resume'] as String?;
     if (resume == null || resume.trim().isEmpty) return 'Not Set';
     final parts =

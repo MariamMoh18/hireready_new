@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
@@ -9,19 +10,18 @@ class ApiService {
     defaultValue: '',
   );
 
-  // For physical device or iOS simulator, change to your PC's LAN IP.
-  static const String _deviceUrl = 'http://192.168.1.10:5000';
+  // Default to loopback and use adb reverse for Android physical devices.
+  static const String _deviceUrl = 'http://127.0.0.1:5000';
+  static const String _webUrl = 'http://localhost:5000';
 
   static String get baseUrl {
     if (_configuredApiBase.isNotEmpty) {
       return _configuredApiBase;
     }
     if (kIsWeb) {
-      // Chrome runs on the same machine as the backend
-      return 'http://localhost:5000/api/v1';
+      return _webUrl;
     }
-    // For Android physical device, use the LAN IP
-    return '$_deviceUrl/api/v1';
+    return _deviceUrl;
   }
 
   // ── Token helpers ──────────────────────────────────────────────────
@@ -58,39 +58,99 @@ class ApiService {
 
   // ── GET ────────────────────────────────────────────────────────────
   static Future<http.Response> get(String path, {bool auth = true}) async {
-    final url = Uri.parse('$baseUrl$path');
-    final headers = await _headers(auth: auth);
-    return http.get(url, headers: headers);
+    return _requestWithFallback(
+      path: path,
+      auth: auth,
+      sender: (url, headers) => http.get(url, headers: headers),
+    );
   }
 
   // ── POST ───────────────────────────────────────────────────────────
   static Future<http.Response> post(String path,
-      {Map<String, dynamic>? body, bool auth = true}) async {
-    final url = Uri.parse('$baseUrl$path');
-    final headers = await _headers(auth: auth);
-    return http.post(url, headers: headers, body: jsonEncode(body));
+      {Map<String, dynamic>? body, bool auth = true, int timeoutSeconds = 8}) async {
+    final encoded = jsonEncode(body);
+    return _requestWithFallback(
+      path: path,
+      auth: auth,
+      timeoutSeconds: timeoutSeconds,
+      sender: (url, headers) => http.post(url, headers: headers, body: encoded),
+    );
   }
 
   // ── PUT ────────────────────────────────────────────────────────────
   static Future<http.Response> put(String path,
       {Map<String, dynamic>? body, bool auth = true}) async {
-    final url = Uri.parse('$baseUrl$path');
-    final headers = await _headers(auth: auth);
-    return http.put(url, headers: headers, body: jsonEncode(body));
+    final encoded = jsonEncode(body);
+    return _requestWithFallback(
+      path: path,
+      auth: auth,
+      sender: (url, headers) => http.put(url, headers: headers, body: encoded),
+    );
   }
 
   // ── PATCH ───────────────────────────────────────────────────────────
   static Future<http.Response> patch(String path,
       {Map<String, dynamic>? body, bool auth = true}) async {
-    final url = Uri.parse('$baseUrl$path');
-    final headers = await _headers(auth: auth);
-    return http.patch(url, headers: headers, body: jsonEncode(body));
+    final encoded = jsonEncode(body);
+    return _requestWithFallback(
+      path: path,
+      auth: auth,
+      sender: (url, headers) => http.patch(url, headers: headers, body: encoded),
+    );
   }
 
   // ── DELETE ──────────────────────────────────────────────────────────
   static Future<http.Response> delete(String path, {bool auth = true}) async {
-    final url = Uri.parse('$baseUrl$path');
+    return _requestWithFallback(
+      path: path,
+      auth: auth,
+      sender: (url, headers) => http.delete(url, headers: headers),
+    );
+  }
+
+  static List<Uri> candidateUris(String path) {
+    final normalized = path.startsWith('/') ? path : '/$path';
+    final hasApiPrefix = normalized.startsWith('/api/');
+    if (hasApiPrefix) {
+      return <Uri>[Uri.parse('$baseUrl$normalized')];
+    }
+    return <Uri>[
+      Uri.parse('$baseUrl/api/v1$normalized'),
+      Uri.parse('$baseUrl$normalized'),
+    ];
+  }
+
+  static Future<http.Response> _requestWithFallback({
+    required String path,
+    required bool auth,
+    int timeoutSeconds = 8,
+    required Future<http.Response> Function(
+      Uri url,
+      Map<String, String> headers,
+    ) sender,
+  }) async {
     final headers = await _headers(auth: auth);
-    return http.delete(url, headers: headers);
+    http.Response? lastResponse;
+    Object? lastError;
+
+    for (final url in candidateUris(path)) {
+      try {
+        final response = await sender(url, headers).timeout(
+          Duration(seconds: timeoutSeconds),
+        );
+        if (response.statusCode == 404) {
+          lastResponse = response;
+          continue;
+        }
+        return response;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    if (lastResponse != null) {
+      return lastResponse;
+    }
+    throw Exception(lastError?.toString() ?? 'Network error');
   }
 }

@@ -1,6 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
+import 'package:ai_interview/models/interview_feedback.dart';
 import 'package:ai_interview/services/interview_service.dart';
+import 'package:ai_interview/services/pdf_service.dart';
 
 class FeedbackPage extends StatefulWidget {
   final int sessionId;
@@ -11,28 +15,74 @@ class FeedbackPage extends StatefulWidget {
   State<FeedbackPage> createState() => _FeedbackPageState();
 }
 
-class _FeedbackPageState extends State<FeedbackPage> {
+class _FeedbackPageState extends State<FeedbackPage>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   String? _errorMessage;
-  Map<String, dynamic>? _feedbackData;
+  InterviewFeedback? _feedbackData;
   int _selectedQuestion = 0; // index of the selected Q in Response Evaluation
+  late final AnimationController _scoreAnimationController;
+  late Animation<double> _scoreProgress;
 
   @override
   void initState() {
     super.initState();
+    _scoreAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _scoreProgress = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(
+        parent: _scoreAnimationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
     _fetchFeedback();
   }
 
+  @override
+  void dispose() {
+    _scoreAnimationController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchFeedback() async {
-    final result = await InterviewService.generateFeedback(widget.sessionId);
-    if (result['success'] == true) {
+    try {
+      final result = await InterviewService.generateFeedback(widget.sessionId);
+      if (!mounted) return;
+      if (result['success'] == true) {
+        final rawFeedback = result['feedback'];
+        if (rawFeedback is! Map) {
+          throw Exception('Invalid feedback payload format');
+        }
+
+        final feedback = InterviewFeedback.fromJson(
+          Map<String, dynamic>.from(rawFeedback as Map),
+        );
+        setState(() {
+          _feedbackData = feedback;
+          _isLoading = false;
+        });
+        _scoreProgress = Tween<double>(
+          begin: 0,
+          end: feedback.overallScore.toDouble(),
+        ).animate(
+          CurvedAnimation(
+            parent: _scoreAnimationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+        _scoreAnimationController.forward(from: 0);
+      } else {
+        setState(() {
+          _errorMessage = result['message'] ?? 'Failed to load feedback';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _feedbackData = result['feedback'];
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _errorMessage = result['message'] ?? 'Failed to load feedback';
+        _errorMessage = 'Failed to parse feedback: $e';
         _isLoading = false;
       });
     }
@@ -88,15 +138,12 @@ class _FeedbackPageState extends State<FeedbackPage> {
       );
     }
 
-    final data = _feedbackData ?? {};
-    final overallScore = (data['overall_score'] ?? 0).toDouble();
-    final voiceScore = (data['voice_score'] ?? 0).toDouble();
-    final facialScore = (data['facial_score'] ?? 0).toDouble();
-    final contentScore = (data['content_score'] ?? 0).toDouble();
-    final strengths = List<String>.from(data['strengths'] ?? []);
-    final weaknesses = List<String>.from(data['weaknesses'] ?? []);
-    final suggestions = List<String>.from(data['suggestions'] ?? []);
-    final qaPairs = List<Map<String, dynamic>>.from(data['qa_pairs'] ?? []);
+    final data = _feedbackData;
+    if (data == null) {
+      return const Scaffold(
+        body: Center(child: Text('Feedback data is unavailable.')),
+      );
+    }
 
     return Scaffold(
       body: Container(
@@ -124,28 +171,32 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 10),
-                      _buildOverallScore(overallScore),
+                      _buildOverallScore(),
                       const SizedBox(height: 32),
-                      _buildScoreCards(voiceScore, facialScore, contentScore),
+                      _buildScoreCards(
+                        data.summary.voiceTone.toDouble(),
+                        data.summary.facialExpression.toDouble(),
+                        data.summary.contentQuality.toDouble(),
+                      ),
                       const SizedBox(height: 28),
-                      if (strengths.isNotEmpty)
+                      if (data.strengths.isNotEmpty)
                         _buildFeedbackCard(
                           title: 'Key Strengths',
-                          items: strengths,
+                          items: data.strengths,
                           icon: Icons.check_circle,
                           color: const Color(0xFF4CAF50),
                         ),
                       const SizedBox(height: 20),
-                      if (weaknesses.isNotEmpty || suggestions.isNotEmpty)
+                      if (data.improvements.isNotEmpty)
                         _buildFeedbackCard(
                           title: 'Improvement Suggestions',
-                          items:
-                              suggestions.isNotEmpty ? suggestions : weaknesses,
+                          items: data.improvements,
                           icon: Icons.lightbulb,
                           color: const Color(0xFFFFA726),
                         ),
                       const SizedBox(height: 28),
-                      if (qaPairs.isNotEmpty) _buildResponseEvaluation(qaPairs),
+                      if (data.questionEvaluations.isNotEmpty)
+                        _buildResponseEvaluation(data.questionEvaluations),
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -198,29 +249,35 @@ class _FeedbackPageState extends State<FeedbackPage> {
   }
 
   // ── Overall Score ───────────────────────────────────────────────────
-  Widget _buildOverallScore(double score) {
+  Widget _buildOverallScore() {
     return Center(
-      child: SizedBox(
-        height: 180,
-        width: 180,
-        child: CustomPaint(
-          painter: _CircularScorePainter(
-            score: score,
-            strokeWidth: 14,
-            backgroundColor: Colors.white.withOpacity(0.3),
-            progressColor: const Color(0xFF1E83FF),
-          ),
-          child: Center(
-            child: Text(
-              '${score.round()}',
-              style: const TextStyle(
-                fontSize: 52,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E83FF),
+      child: AnimatedBuilder(
+        animation: _scoreProgress,
+        builder: (context, child) {
+          final score = _scoreProgress.value;
+          return SizedBox(
+            height: 180,
+            width: 180,
+            child: CustomPaint(
+              painter: _CircularScorePainter(
+                score: score,
+                strokeWidth: 14,
+                backgroundColor: Colors.white.withOpacity(0.3),
+                progressColor: const Color(0xFF1E83FF),
+              ),
+              child: Center(
+                child: Text(
+                  '${score.round()}',
+                  style: const TextStyle(
+                    fontSize: 52,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E83FF),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -377,10 +434,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
   }
 
   // ── Response Evaluation ────────────────────────────────────────────
-  Widget _buildResponseEvaluation(List<Map<String, dynamic>> qaPairs) {
-    final selectedQ = _selectedQuestion < qaPairs.length
-        ? qaPairs[_selectedQuestion]
-        : qaPairs.first;
+  Widget _buildResponseEvaluation(List<QuestionEvaluation> evaluations) {
+    final selectedQ = _selectedQuestion < evaluations.length
+        ? evaluations[_selectedQuestion]
+        : evaluations.first;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,7 +458,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
             SizedBox(
               width: 48,
               child: Column(
-                children: List.generate(qaPairs.length, (i) {
+                children: List.generate(evaluations.length, (i) {
                   final isSelected = i == _selectedQuestion;
                   return GestureDetector(
                     onTap: () {
@@ -445,7 +502,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Q:${selectedQ['question'] ?? ''}',
+                      'Q: ${selectedQ.question}',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -453,8 +510,37 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    if (selectedQ.answer.isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          selectedQ.answer,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     Text(
-                      'A: ${selectedQ['answer'] ?? '(No answer)'}',
+                      'Score: ${selectedQ.score}/100',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF1E83FF),
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      selectedQ.feedback,
                       style: const TextStyle(
                         fontSize: 13,
                         color: Colors.black87,
@@ -481,11 +567,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
           Expanded(
             child: OutlinedButton.icon(
               onPressed: () {
-                // TODO: Generate PDF report
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Report generation coming soon!')),
-                );
+                _exportReport();
               },
               icon: const Icon(Icons.download, size: 18),
               label: const Text('Report'),
@@ -522,6 +604,34 @@ class _FeedbackPageState extends State<FeedbackPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _exportReport() async {
+    final data = _feedbackData;
+    if (data == null) return;
+
+    final bytes = await PdfService().generateHistoryReport(
+      format: PdfPageFormat.a4,
+      score: data.overallScore,
+      voiceScore: data.summary.voiceTone,
+      facialScore: data.summary.facialExpression,
+      contentScore: data.summary.contentQuality,
+      strengths: data.strengths,
+      improvements: data.improvements,
+      qaList: data.questionEvaluations
+          .map(
+            (item) => {
+              'question': item.question,
+              'answer': item.answer.isNotEmpty ? item.answer : 'Score ${item.score}/100 - ${item.feedback}',
+            },
+          )
+          .toList(),
+    );
+
+    await Printing.sharePdf(
+      bytes: bytes,
+      filename: 'interview-feedback-${data.interviewId}.pdf',
     );
   }
 }

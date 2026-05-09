@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ai_interview/config/app_icons.dart';
 import 'package:ai_interview/config/app_routes.dart';
+import 'package:ai_interview/services/auth_service.dart';
+import 'package:ai_interview/services/user_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

@@ -7,7 +7,8 @@ import 'package:ai_interview/config/app_routes.dart';
 import 'package:ai_interview/services/user_service.dart';
 
 class ProfileSetupPage extends StatefulWidget {
-  const ProfileSetupPage({super.key});
+  final String? initialUsername;
+  const ProfileSetupPage({super.key, this.initialUsername});
 
   @override
   State<ProfileSetupPage> createState() => _ProfileSetupPageState();
@@ -67,6 +68,14 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     'Mid',
     'Senior',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialUsername != null && widget.initialUsername!.isNotEmpty) {
+      _usernameController.text = widget.initialUsername!;
+    }
+  }
 
   @override
   void dispose() {
@@ -531,11 +540,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                         ? null
                         : () async {
                             if (_selectedJobField == null ||
+                                _selectedTargetPosition == null ||
                                 _selectedExperience == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                      'Please select your Job Field and Experience Level'),
+                                      'Please select your Job Field, Target Position, and Experience Level'),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -547,7 +557,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                             final result = await UserService.setupProfile(
                               jobField: _selectedJobField!,
                               experienceLevel: _selectedExperience!,
-                              targetRole: _selectedTargetPosition,
+                              targetRole: _selectedTargetPosition!,
                               name: _usernameController.text.trim(),
                             );
 
