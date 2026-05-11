@@ -12,6 +12,8 @@ class User(db.Model):
     email = db.Column(db.String(180), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     experience_level = db.Column(db.String(50))
+    job_field = db.Column(db.String(120))
+    target_role = db.Column(db.String(120))
     is_admin = db.Column(db.Boolean, default=False)  # Admin flag for committee demo
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

@@ -37,9 +37,11 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
         include_fk = True
         
     id = fields.Int(dump_only=True)
-    name = fields.Str(dump_only=True) 
+    name = fields.Str(dump_only=True)
     email = fields.Email(dump_only=True)
     experience_level = fields.Str(validate=validate.OneOf(["Junior", "Mid", "Senior"]))
+    job_field = fields.Str()
+    target_role = fields.Str()
     created_at = fields.DateTime(dump_only=True)
 
 class SkillSchema(ma.SQLAlchemyAutoSchema):
@@ -205,6 +207,8 @@ class PromptTemplateSchema(ma.SQLAlchemyAutoSchema):
 class UserUpdateSchema(Schema):
     name = fields.String()
     experience_level = fields.String(validate=validate.OneOf(["Junior", "Mid", "Senior"]))
+    job_field = fields.String()
+    target_role = fields.String()
 
 class SessionCreateSchema(Schema):
     position_id = fields.Int(required=False, allow_none=True)

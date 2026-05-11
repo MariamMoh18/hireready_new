@@ -114,6 +114,8 @@ class AuthMe(MethodView):
             "name": user.name,
             "email": user.email,
             "experience_level": user.experience_level,
+            "job_field": user.job_field,
+            "target_role": user.target_role,
             "total_interviews": completed_interviews,
             "joined_at": user.created_at.strftime("%Y-%m-%d"),
         }, 200
