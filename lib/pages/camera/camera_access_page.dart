@@ -261,7 +261,7 @@ class _CameraAccessPageState extends State<CameraAccessPage> {
         const Text(
           'Before You Start',
           style: TextStyle(
-            fontSize: 28,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
@@ -276,91 +276,92 @@ class _CameraAccessPageState extends State<CameraAccessPage> {
   }
 
   Widget _buildVideoPreview() {
-    return Container(
-      width: double.infinity,
-      height: 280,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          children: [
-            // Camera preview or placeholder
-            if (_isCameraInitialized &&
-                _cameraController != null &&
-                !_isCameraStopped)
-              SizedBox(
-                width: double.infinity,
-                height: double.infinity,
-                child: CameraPreview(_cameraController!),
-              )
-            else
-              Container(
-                width: double.infinity,
-                height: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.grey[400]!, Colors.grey[300]!],
+    final cameraReady = _isCameraInitialized &&
+        _cameraController != null &&
+        !_isCameraStopped;
+    final previewSize =
+        cameraReady ? _cameraController!.value.previewSize : null;
+
+    return Center(
+      child: Container(
+        width: 342,
+        height: 456,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            children: [
+              // Camera preview or placeholder
+              if (cameraReady && previewSize != null)
+                FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: previewSize.width,
+                    height: previewSize.height,
+                    child: CameraPreview(_cameraController!),
                   ),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.videocam_off,
-                        size: 64,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _cameraAccessGranted
-                            ? 'Initializing camera...'
-                            : 'Camera access required',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            // Camera status badge in top right (clickable)
-            Positioned(
-              top: 12,
-              right: 12,
-              child: GestureDetector(
-                onTap: _cameraAccessGranted ? _toggleCamera : null,
-                child: Container(
-                  width: 40,
-                  height: 40,
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  height: double.infinity,
                   decoration: BoxDecoration(
-                    color: _isCameraInitialized &&
-                            _cameraAccessGranted &&
-                            !_isCameraStopped
-                        ? Colors.green
-                        : Colors.red,
-                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.grey[400]!, Colors.grey[300]!],
+                    ),
                   ),
-                  child: Icon(
-                    _isCameraInitialized &&
-                            _cameraAccessGranted &&
-                            !_isCameraStopped
-                        ? Icons.videocam
-                        : Icons.videocam_off,
-                    color: Colors.white,
-                    size: 20,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.videocam_off,
+                          size: 64,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _cameraAccessGranted
+                              ? 'Initializing camera...'
+                              : 'Camera access required',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // Camera status badge in top right (clickable)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: GestureDetector(
+                  onTap: _cameraAccessGranted ? _toggleCamera : null,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: cameraReady ? Colors.green : Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      cameraReady ? Icons.videocam : Icons.videocam_off,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

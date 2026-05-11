@@ -20,50 +20,203 @@ class _SignUpPageState extends State<SignUpPage> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
+  // Validation state
+  String? _nameError;
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
+  bool _submitted = false;
+
+  final _nameFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _confirmPasswordFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_onNameChanged);
+    _emailController.addListener(_onEmailChanged);
+    _passwordController.addListener(_onPasswordChanged);
+    _confirmPasswordController.addListener(_onConfirmPasswordChanged);
+    _nameFocus.addListener(_onNameFocusChanged);
+    _emailFocus.addListener(_onEmailFocusChanged);
+    _passwordFocus.addListener(_onPasswordFocusChanged);
+    _confirmPasswordFocus.addListener(_onConfirmPasswordFocusChanged);
+  }
+
+  void _onNameChanged() {
+    final err = _validateNameOnly(_nameController.text);
+    if (err != _nameError) setState(() => _nameError = err);
+  }
+
+  void _onEmailChanged() {
+    final err = _validateEmailOnly(_emailController.text);
+    if (err != _emailError) setState(() => _emailError = err);
+  }
+
+  void _onPasswordChanged() {
+    final err = _validatePasswordOnly(_passwordController.text);
+    if (err != _passwordError) setState(() => _passwordError = err);
+    // Re-validate confirm password if it has content
+    if (_confirmPasswordController.text.isNotEmpty) {
+      final confirmErr = _validateConfirmPasswordOnly(
+        _confirmPasswordController.text, _passwordController.text);
+      if (confirmErr != _confirmPasswordError) {
+        setState(() => _confirmPasswordError = confirmErr);
+      }
+    }
+  }
+
+  void _onConfirmPasswordChanged() {
+    final err = _validateConfirmPasswordOnly(
+      _confirmPasswordController.text, _passwordController.text);
+    if (err != _confirmPasswordError) setState(() => _confirmPasswordError = err);
+  }
+
+  void _onNameFocusChanged() {
+    if (!_nameFocus.hasFocus && _nameError != null) {
+      setState(() => _nameError = _validateNameOnly(_nameController.text));
+    }
+  }
+
+  void _onEmailFocusChanged() {
+    if (!_emailFocus.hasFocus && _emailError != null) {
+      setState(() => _emailError = _validateEmailOnly(_emailController.text));
+    }
+  }
+
+  void _onPasswordFocusChanged() {
+    if (!_passwordFocus.hasFocus && _passwordError != null) {
+      setState(() => _passwordError = _validatePasswordOnly(_passwordController.text));
+    }
+  }
+
+  void _onConfirmPasswordFocusChanged() {
+    if (!_confirmPasswordFocus.hasFocus && _confirmPasswordError != null) {
+      setState(() => _confirmPasswordError = _validateConfirmPasswordOnly(
+        _confirmPasswordController.text, _passwordController.text));
+    }
+  }
+
   @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
+    _emailController.removeListener(_onEmailChanged);
+    _passwordController.removeListener(_onPasswordChanged);
+    _confirmPasswordController.removeListener(_onConfirmPasswordChanged);
+    _nameFocus.removeListener(_onNameFocusChanged);
+    _emailFocus.removeListener(_onEmailFocusChanged);
+    _passwordFocus.removeListener(_onPasswordFocusChanged);
+    _confirmPasswordFocus.removeListener(_onConfirmPasswordFocusChanged);
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _nameFocus.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmPasswordFocus.dispose();
     super.dispose();
   }
 
+  // ── Validation methods ──────────────────────────────────────────
+
+  String? _validateNameOnly(String value) {
+    if (!_submitted) return null;
+    final name = value.trim();
+    if (name.isEmpty) return 'Username is required';
+    if (name.length < 3) return 'Username must be at least 3 characters';
+    if (name.length > 20) return 'Username cannot exceed 20 characters';
+    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(name)) {
+      return 'Username can only contain letters, numbers, and underscores';
+    }
+    return null;
+  }
+
+  String? _validateEmailOnly(String value) {
+    if (!_submitted) return null;
+    final email = value.trim();
+    if (email.isEmpty) return 'Email is required';
+    if (email.contains(' ')) return 'Email cannot contain spaces';
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  }
+
+  String? _validatePasswordOnly(String value) {
+    if (!_submitted) return null;
+    if (value.isEmpty) return 'Password is required';
+    if (value.length <= 6) return 'Password must be more than 6 characters';
+    return null;
+  }
+
+  String? _validateConfirmPasswordOnly(String value, String password) {
+    if (!_submitted) return null;
+    if (value.isEmpty) return 'Please confirm your password';
+    if (value != password) return 'Passwords do not match';
+    return null;
+  }
+
+  bool _validateAll() {
+    _submitted = true;
+    final nameErr = _validateNameOnly(_nameController.text);
+    final emailErr = _validateEmailOnly(_emailController.text);
+    final passwordErr = _validatePasswordOnly(_passwordController.text);
+    final confirmErr = _validateConfirmPasswordOnly(
+      _confirmPasswordController.text, _passwordController.text);
+    setState(() {
+      _nameError = nameErr;
+      _emailError = emailErr;
+      _passwordError = passwordErr;
+      _confirmPasswordError = confirmErr;
+    });
+    return nameErr == null && emailErr == null &&
+           passwordErr == null && confirmErr == null;
+  }
+
+  InputDecoration _buildDecoration({
+    required String hintText,
+    required Widget? prefixIcon,
+    Widget? suffixIcon,
+    String? errorText,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      errorText: errorText,
+      errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
+      errorMaxLines: 2,
+      filled: true,
+      fillColor: Colors.grey[200],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: BorderSide.none,
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 18,
+      ),
+    );
+  }
+
   Future<void> _handleSignUp() async {
+    // Frontend validation first — do NOT call API if invalid
+    if (!_validateAll()) return;
+
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim();
-
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (password.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password must be at least 6 characters'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    final password = _passwordController.text;
 
     setState(() => _isLoading = true);
 
@@ -105,12 +258,19 @@ class _SignUpPageState extends State<SignUpPage> {
         );
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message'] ?? 'Registration failed'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Map backend errors to field-level validation
+      final message = result['message'] ?? '';
+      if (message.toLowerCase().contains('email already exists') ||
+          message.toLowerCase().contains('already exists')) {
+        setState(() => _emailError = 'This email is already in use');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -159,34 +319,27 @@ class _SignUpPageState extends State<SignUpPage> {
                 // Name Field
                 TextFormField(
                   controller: _nameController,
+                  focusNode: _nameFocus,
                   keyboardType: TextInputType.name,
                   style: const TextStyle(color: Colors.black),
-                  decoration: InputDecoration(
+                  decoration: _buildDecoration(
                     hintText: 'Full Name',
                     prefixIcon: const Padding(
                       padding: EdgeInsets.all(16.0),
                       child: Icon(Icons.person_outline,
                           color: Colors.grey, size: 20),
                     ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 18,
-                    ),
+                    errorText: _nameError,
                   ),
                 ),
                 const SizedBox(height: 20),
                 // Email Field
                 TextFormField(
                   controller: _emailController,
+                  focusNode: _emailFocus,
                   keyboardType: TextInputType.emailAddress,
                   style: const TextStyle(color: Colors.black),
-                  decoration: InputDecoration(
+                  decoration: _buildDecoration(
                     hintText: 'Email',
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -200,25 +353,17 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                       ),
                     ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 18,
-                    ),
+                    errorText: _emailError,
                   ),
                 ),
                 const SizedBox(height: 20),
                 // Password Field
                 TextFormField(
                   controller: _passwordController,
+                  focusNode: _passwordFocus,
                   obscureText: _obscurePassword,
                   style: const TextStyle(color: Colors.black),
-                  decoration: InputDecoration(
+                  decoration: _buildDecoration(
                     hintText: 'Password',
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -245,25 +390,17 @@ class _SignUpPageState extends State<SignUpPage> {
                         });
                       },
                     ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 18,
-                    ),
+                    errorText: _passwordError,
                   ),
                 ),
                 const SizedBox(height: 20),
                 // Confirm Password Field
                 TextFormField(
                   controller: _confirmPasswordController,
+                  focusNode: _confirmPasswordFocus,
                   obscureText: _obscureConfirmPassword,
                   style: const TextStyle(color: Colors.black),
-                  decoration: InputDecoration(
+                  decoration: _buildDecoration(
                     hintText: 'Confirm Password',
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -290,16 +427,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         });
                       },
                     ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 18,
-                    ),
+                    errorText: _confirmPasswordError,
                   ),
                 ),
                 const SizedBox(height: 32),

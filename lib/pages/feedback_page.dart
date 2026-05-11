@@ -145,19 +145,27 @@ class _FeedbackPageState extends State<FeedbackPage>
       );
     }
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF90CAF9), Color(0xFFE3F2FD), Colors.white],
-            stops: [0.0, 0.35, 0.6],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/home', (route) => false);
+        }
+      },
+      child: Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF90CAF9), Color(0xFFE3F2FD), Colors.white],
+              stops: [0.0, 0.35, 0.6],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
+          child: SafeArea(
+            child: Column(
+              children: [
               // App bar
               Padding(
                 padding:
@@ -204,7 +212,8 @@ class _FeedbackPageState extends State<FeedbackPage>
               ),
               // Bottom buttons
               _buildBottomButtons(context),
-            ],
+              ],
+            ),
           ),
         ),
       ),

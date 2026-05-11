@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
@@ -59,10 +60,16 @@ class AuthService {
         await prefs.setInt('user_id', userId);
         await prefs.setString('user_name', user['name'] as String? ?? '');
 
+        debugPrint('[AuthService] login: saved userId=$userId, token=***');
+        debugPrint('[AuthService] login: saved user_name=${user['name']}');
+
         final userProfile = await UserService.getProfile();
         final profileData = userProfile ?? user;
         final name = profileData['name'] as String? ?? '';
         final profileCompleted = (profileData['experience_level'] as String?) != null;
+
+        debugPrint('[AuthService] login: profile from API exists=${userProfile != null}, profileCompleted=$profileCompleted');
+        debugPrint('[AuthService] login: profile experience_level=${profileData['experience_level']}, job_field=${profileData['job_field']}');
 
         return {
           'success': true,

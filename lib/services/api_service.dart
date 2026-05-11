@@ -11,7 +11,7 @@ class ApiService {
   );
 
   // Default to loopback and use adb reverse for Android physical devices.
-  static const String _deviceUrl = 'http://192.168.1.102:5000';
+  static const String _deviceUrl = 'http://192.168.1.7:5000';
   static const String _webUrl = 'http://localhost:5000';
 
   static String get baseUrl {
@@ -40,6 +40,10 @@ class ApiService {
     await prefs.remove('jwt_token');
     await prefs.remove('user_name');
     await prefs.remove('user_id');
+    // Clear cached profile data to prevent leaking across users
+    await prefs.remove('cached_job_field');
+    await prefs.remove('cached_target_role');
+    await prefs.remove('cached_experience_level');
   }
 
   // ── Auth headers ───────────────────────────────────────────────────

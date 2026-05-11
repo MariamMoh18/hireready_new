@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ai_interview/services/api_service.dart';
 
@@ -12,11 +13,15 @@ class UserService {
     try {
       final profile = await _fetchProfileFromPaths(const ['/users/me', '/me']);
       if (profile != null) {
+        debugPrint('[UserService] getProfile: keys=${profile.keys}, experience_level=${profile['experience_level']}');
+        // Merge from local cache for fields the API may not return (safe: cache cleared on logout)
         final hydrated = await _mergeWithLocalProfileCache(profile);
-        await _cacheProfileFields(hydrated);
+        debugPrint('[UserService] getProfile: hydrated experience_level=${hydrated['experience_level']}, job_field=${hydrated['job_field']}, target_role=${hydrated['target_role']}');
         return hydrated;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[UserService] getProfile error: $e');
+    }
     return null;
   }
 
@@ -56,6 +61,8 @@ class UserService {
           '/profile',
           body: {
             if (name != null) 'name': name,
+            if (fieldOfInterest != null) 'job_field': fieldOfInterest,
+            if (targetRole != null) 'target_role': targetRole,
             if (experienceLevel != null) 'experience_level': experienceLevel,
           },
         );
@@ -125,8 +132,10 @@ class UserService {
         final patchRes = await ApiService.patch(
           '/profile',
           body: {
-            if (name != null && name.isNotEmpty) 'name': name,
+            'job_field': jobField,
+            'target_role': targetRole,
             'experience_level': experienceLevel,
+            if (name != null && name.isNotEmpty) 'name': name,
           },
         );
         statusCode = patchRes.statusCode;

@@ -48,8 +48,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadData() async {
+    final isLoggedIn = await AuthService.isLoggedIn();
+    final userId = await AuthService.getUserId();
+    debugPrint('[HomePage] _loadData: isLoggedIn=$isLoggedIn, userId=$userId');
+
+    if (!isLoggedIn && mounted) {
+      debugPrint('[HomePage] _loadData: not logged in, redirecting to login');
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+      return;
+    }
+
     final name = await AuthService.getUserName();
     final profile = await UserService.getProfile();
+    debugPrint('[HomePage] _loadData: profile='
+        '${profile != null ? "exists, experience_level=${profile['experience_level']}, job_field=${profile['job_field']}" : "null"}');
+
     final metricsResult = await InterviewService.getDashboardMetrics();
 
     if (mounted) {

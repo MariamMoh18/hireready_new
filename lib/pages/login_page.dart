@@ -585,11 +585,16 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     // Simulate network delay
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 1), () {
       Navigator.pop(context); // Close loading dialog
 
-      // Navigate to HomePage
-      Navigator.pushReplacementNamed(context, AppRoutes.home);
+      // Social login is a mock — redirect to email/password login
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$provider sign-in coming soon. Please log in with email instead.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
     });
   }
 

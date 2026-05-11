@@ -594,6 +594,11 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
 
   // ── Live camera feed ───────────────────────────────────────────────
   Widget _buildVideoFeed() {
+    final cameraReady = _isCameraReady && _cameraController != null;
+    final previewSize = cameraReady
+        ? _cameraController!.value.previewSize
+        : null;
+
     return Container(
       height: 400,
       decoration: BoxDecoration(
@@ -612,11 +617,14 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
           // Live camera or placeholder
           ClipRRect(
             borderRadius: BorderRadius.circular(24),
-            child: _isCameraReady && _cameraController != null
-                ? SizedBox(
-                    width: double.infinity,
-                    height: 400,
-                    child: CameraPreview(_cameraController!),
+            child: cameraReady && previewSize != null
+                ? FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: previewSize.width,
+                      height: previewSize.height,
+                      child: CameraPreview(_cameraController!),
+                    ),
                   )
                 : Container(
                     width: double.infinity,
