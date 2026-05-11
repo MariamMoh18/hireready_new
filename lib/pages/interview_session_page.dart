@@ -150,12 +150,6 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
         _timerSeconds = _questionDuration;
       });
       _loadCurrentQuestion();
-      // Auto-start recording for the next question
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          _startRecording();
-        }
-      });
     } else {
       // All questions done → upload everything and navigate
       _timer?.cancel();
@@ -712,9 +706,9 @@ class _InterviewSessionPageState extends State<InterviewSessionPage> {
         children: [
           Row(
             children: [
-              const Text(
-                'Live Interview Question',
-                style: TextStyle(
+              Text(
+                'Question $_currentQuestion',
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1E83FF),

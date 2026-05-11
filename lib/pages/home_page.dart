@@ -313,7 +313,7 @@ class _HomePageState extends State<HomePage> {
     final targetRole = _targetRoleFromProfile();
     final experienceLevel = _profile?['experience_level'] ?? 'Not Set';
     final industry = _industryFromProfile();
-    final avgScore = _progress?['average_score'];
+    final avgScore = (_progress?['avg_score'] as num?)?.round();
     final totalSessions = _progress?['total_sessions'] ?? 0;
 
     // We can show the weakest category as the 'trend' for now

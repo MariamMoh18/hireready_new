@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:camera/camera.dart';
@@ -77,7 +78,9 @@ class InterviewService {
       }
       return {
         'success': false,
-        'message': body['message'] ?? 'Could not start session',
+        'message': body['message'] ??
+            body['msg'] ??
+            'Could not start session (HTTP ${res.statusCode}). Try again or contact support.',
       };
     } catch (e) {
       return {'success': false, 'message': 'Connection error: $e'};
@@ -329,19 +332,32 @@ class InterviewService {
     try {
       final res = await ApiService.get('/sessions', auth: true);
       final body = _decodeMap(res.body);
+      debugPrint('[History] Raw response: status=${res.statusCode}, body=${body.toString().substring(0, min(body.toString().length, 500))}');
       if (res.statusCode == 200 &&
           body['success'] == true &&
           body['data'] is Map<String, dynamic>) {
         final sessions =
             (body['data']['sessions'] as List<dynamic>? ?? const []);
+        debugPrint('[History] Found ${sessions.length} sessions (data.sessions format)');
+        for (final s in sessions) {
+          final m = s as Map<String, dynamic>;
+          debugPrint('[History]   session id=${m['id']}, type=${m['session_type']}, status=${m['status']}, score=${m['overall_score']}');
+        }
         return sessions.cast<Map<String, dynamic>>();
       }
       if (res.statusCode == 200 && body['sessions'] is List<dynamic>) {
         final sessions = body['sessions'] as List<dynamic>;
+        debugPrint('[History] Found ${sessions.length} sessions (direct sessions format)');
+        for (final s in sessions) {
+          final m = s as Map<String, dynamic>;
+          debugPrint('[History]   session id=${m['id']}, type=${m['session_type']}, status=${m['status']}, score=${m['overall_score']}');
+        }
         return sessions.cast<Map<String, dynamic>>();
       }
+      debugPrint('[History] Unexpected response format, returning empty list');
       return [];
     } catch (e) {
+      debugPrint('[History] Error fetching history: $e');
       return [];
     }
   }
@@ -401,6 +417,7 @@ class InterviewService {
           .timeout(const Duration(seconds: 10));
       final body = _decodeMap(res.body);
       if (res.statusCode == 200) {
+        debugPrint('[Metrics] Dashboard API response: total_practice_minutes=${body['total_practice_minutes']}, total_sessions=${body['total_sessions']}');
         return {'success': true, 'data': body};
       }
     } catch (_) {
@@ -416,6 +433,8 @@ class InterviewService {
       int totalMinutes = 0;
 
       for (var session in history) {
+        final dur = session['duration'];
+        debugPrint('[Metrics] Session id=${session['id']}, status=${session['status']}, duration=${dur}s, score=${session['overall_score']}');
         if (session['status'] == 'completed' &&
             session['overall_score'] != null) {
           final score = (session['overall_score'] as num).toDouble();
@@ -423,10 +442,11 @@ class InterviewService {
           completedWithScore++;
           if (score > highestScore) highestScore = score;
         }
-        if (session['duration'] != null) {
-          totalMinutes += (session['duration'] as num) ~/ 60;
+        if (dur != null) {
+          totalMinutes += ((dur as num) / 60).round();
         }
       }
+      debugPrint('[Metrics] Fallback computed: totalMinutes=$totalMinutes, totalSessions=$totalSessions');
 
       return {
         'success': true,
@@ -452,13 +472,13 @@ class InterviewService {
 
   static int _questionCountForLength(String lengthType) {
     switch (lengthType.toLowerCase()) {
-      case 'short':
-        return 3;
-      case 'long':
-        return 7;
+      case 'quick':
+        return 5;
+      case 'full':
+        return 15;
       case 'standard':
       default:
-        return 5;
+        return 10;
     }
   }
 

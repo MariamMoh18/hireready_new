@@ -11,7 +11,7 @@ class ApiService {
   );
 
   // Default to loopback and use adb reverse for Android physical devices.
-  static const String _deviceUrl = 'http://127.0.0.1:5000';
+  static const String _deviceUrl = 'http://192.168.1.102:5000';
   static const String _webUrl = 'http://localhost:5000';
 
   static String get baseUrl {
@@ -130,27 +130,30 @@ class ApiService {
     ) sender,
   }) async {
     final headers = await _headers(auth: auth);
-    http.Response? lastResponse;
-    Object? lastError;
 
-    for (final url in candidateUris(path)) {
+    final uris = candidateUris(path);
+    http.Response? last404;
+
+    for (var i = 0; i < uris.length; i++) {
+      final url = uris[i];
+      final isLast = i == uris.length - 1;
+
       try {
         final response = await sender(url, headers).timeout(
           Duration(seconds: timeoutSeconds),
         );
         if (response.statusCode == 404) {
-          lastResponse = response;
-          continue;
+          last404 = response;
+          if (!isLast) continue; // Try next URL pattern
         }
         return response;
       } catch (e) {
-        lastError = e;
+        if (isLast) rethrow; // Real endpoint failed — propagate
+        // Prefix URL failed — silently continue to try real URL
       }
     }
 
-    if (lastResponse != null) {
-      return lastResponse;
-    }
-    throw Exception(lastError?.toString() ?? 'Network error');
+    if (last404 != null) return last404;
+    throw Exception('Network error');
   }
 }

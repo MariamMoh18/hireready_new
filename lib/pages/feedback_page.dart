@@ -530,16 +530,6 @@ class _FeedbackPageState extends State<FeedbackPage>
                       const SizedBox(height: 12),
                     ],
                     Text(
-                      'Score: ${selectedQ.score}/100',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF1E83FF),
-                        fontWeight: FontWeight.w600,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
                       selectedQ.feedback,
                       style: const TextStyle(
                         fontSize: 13,

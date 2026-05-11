@@ -35,20 +35,123 @@ class _HistoryPageState extends State<HistoryPage> {
   Future<void> _deleteSession(int sessionId) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Session'),
-        content: const Text('Are you sure you want to delete this session?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            width: 310,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            decoration: ShapeDecoration(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 99,
+                  height: 99,
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFE05359),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 60,
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w700,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const SizedBox(
+                  width: 222,
+                  child: Text(
+                    'Are you sure you want to delete this session?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF4B5563),
+                      fontSize: 16,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 163,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE05359),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: 163,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          elevation: 0,
+                          side: const BorderSide(
+                            color: Color(0xFF1E83FF),
+                            width: 1,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Color(0xFF1E83FF),
+                            fontSize: 16,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (confirm == true) {
@@ -223,12 +326,13 @@ class _HistoryPageState extends State<HistoryPage> {
         ? DateFormat('MMM dd, yyyy').format(startTime)
         : 'Unknown date';
 
-    // Type label
-    final lengthType = session['length_type'] ?? 'standard';
-    final typeLabel = _capitalize(lengthType);
+    // Type label — read from session_type (backend field), fallback to standard
+    final rawType = session['session_type'] ?? 'standard';
+    final typeLabel = _capitalize(rawType);
 
-    // Duration
-    final durationMinutes = session['duration_minutes'] ?? 0;
+    // Duration — backend stores in seconds, convert to minutes
+    final durationSeconds = session['duration'] ?? 0;
+    final durationMinutes = (durationSeconds is num) ? (durationSeconds / 60).round() : 0;
     final durationStr = '${durationMinutes}min';
 
     // Score
