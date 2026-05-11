@@ -86,14 +86,6 @@ class InterviewSession(db.Model):
     master_baseline = db.Column(JSON, nullable=True)
     session_type = db.Column(db.String(20), default="standard")
     max_questions = db.Column(db.Integer, default=5)
-    def __init__(self, **kwargs):
-        super(InterviewSession, self).__init__(**kwargs)
-        if self.session_type == "standard":
-            self.max_questions = 10
-        elif self.session_type == "quick":
-            self.max_questions = 5
-        else:
-            self.max_questions = 6
     questions = db.relationship(
         "InterviewQuestion",
         backref="session",

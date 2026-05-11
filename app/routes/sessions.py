@@ -6,7 +6,9 @@ from flask.views import MethodView
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_smorest import Blueprint, abort
 
-from ..Mind.graph import build_graph
+from random import sample
+from ..Mind.graph import build_graph, generate_batch_questions
+from ..utils.job_data import ROLE_QUESTION_POOLS, ROLE_SKILLS, GENERIC_QUESTIONS
 from ..models import AIModel, Answer, InterviewQuestion, InterviewSession, JobPosition, db
 from ..schemas import (
     AnswerDetailSchema,
@@ -26,6 +28,7 @@ from ..schemas import (
     SessionCancelResponseSchema,
     SessionCompleteResponseSchema,
     SessionCreateSchema,
+    SessionDeleteResponseSchema,
     SessionFinalizeSchema,
     SessionListSchema,
     SessionQuestionResponseSchema,
@@ -135,26 +138,155 @@ def _require_session_in_progress(session: InterviewSession) -> None:
         abort(409, message="Session is not active.")
 
 
+def _validate_questions_for_role(questions: list[str], job_slug: str) -> list[str]:
+    """Filter out questions that mention technologies from unrelated domains."""
+    # Define domain keywords that should ONLY appear for their matching roles
+    backend_keywords = {"python", "flask", "sqlalchemy", "django", "docker", "redis",
+                        "postgresql", "mysql", "api", "restful", "celery", "nginx",
+                        "microservice", "backend", "database", "server-side"}
+    ai_keywords = {"tensorflow", "pytorch", "opencv", "mediapipe", "neural network",
+                   "deep learning", "machine learning", "computer vision", "cnn", "nlp"}
+    frontend_keywords = {"react", "redux", "jsx", "css", "html", "dom", "component",
+                         "state management", "responsive layout", "webpack", "vite"}
+    flutter_keywords = {"flutter", "dart", "widget", "firebase", "stream", "provider",
+                        "bloc", "riverpod"}
+
+    # For non-technical roles, ALL tech keywords are cross-domain
+    non_technical_slugs = {"graphic_designer", "digital_marketing"}
+    all_tech_keywords = backend_keywords | ai_keywords | frontend_keywords | flutter_keywords
+
+    # For technical roles, only block keywords from OTHER tech domains
+    role_allowed = {
+        "backend_dev": set(),
+        "ai_engineer": set(),
+        "flutter_dev": set(),
+        "frontend_dev": set(),
+    }
+    role_blocked = {
+        "backend_dev": ai_keywords | frontend_keywords | flutter_keywords,
+        "ai_engineer": backend_keywords | frontend_keywords | flutter_keywords,
+        "flutter_dev": backend_keywords | ai_keywords | frontend_keywords,
+        "frontend_dev": backend_keywords | ai_keywords | flutter_keywords,
+    }
+
+    if job_slug in non_technical_slugs:
+        blocked = all_tech_keywords
+    elif job_slug in role_blocked:
+        blocked = role_blocked[job_slug]
+    else:
+        # Unknown role — block all tech by default
+        blocked = all_tech_keywords
+
+    validated = []
+    for q in questions:
+        q_lower = q.lower()
+        # Check if question mentions any blocked keyword
+        mentions_blocked = any(kw in q_lower for kw in blocked)
+        if not mentions_blocked:
+            validated.append(q)
+        else:
+            print(f"[DEBUG] _validate_questions: filtered out cross-domain question: {q[:80]}...")
+
+    return validated
+
+
+def _generate_session_questions(session: InterviewSession, count: int, job_field_override: str | None = None) -> list[dict]:
+    """Generate diverse questions for a session. Tries AI batch generation first, falls back to role-specific pool."""
+    # Use the user's requested job_field, not the DB fallback position
+    if job_field_override and job_field_override.strip():
+        job_title = job_field_override.strip()
+        job_level = session.job_position.level if session.job_position else "Junior"
+        job_slug = _find_job_slug(job_title)
+        # Get skills from ROLE_SKILLS lookup (covers all known roles)
+        job_skills = ROLE_SKILLS.get(job_slug, [])
+        if not job_skills:
+            # Fallback: use DB skills if available
+            job_skills = [s.name for s in (session.job_position.skills if session.job_position else [])]
+    else:
+        job_title = session.job_position.title if session.job_position else ""
+        job_level = session.job_position.level if session.job_position else ""
+        job_slug = _find_job_slug(job_title)
+        job_skills = [s.name for s in (session.job_position.skills if session.job_position else [])]
+
+    # Try AI batch generation
+    print(f"[DEBUG] _generate_session_questions: job='{job_title}', level='{job_level}', count={count}")
+    ai_questions = generate_batch_questions(job_title, job_level, job_skills, count)
+    print(f"[DEBUG] _generate_session_questions: AI returned {len(ai_questions)} questions (need {count})")
+    if len(ai_questions) >= count:
+        types = ["behavioral", "technical", "technical", "situational", "behavioral",
+                 "technical", "behavioral", "technical", "situational", "technical",
+                 "behavioral", "technical", "situational", "behavioral", "technical"]
+        # Validate: filter out questions with cross-domain keywords
+        validated = _validate_questions_for_role(ai_questions[:count], job_slug)
+        if len(validated) >= count:
+            return [
+                {"question_text": q, "type": types[i % len(types)], "difficulty": "intermediate"}
+                for i, q in enumerate(validated[:count])
+            ]
+        print(f"[DEBUG] _generate_session_questions: validation kept only {len(validated)} — falling back to pool")
+
+    # Fallback: role-specific pool
+    pool_key = _find_job_slug(job_title)
+    pool = ROLE_QUESTION_POOLS.get(pool_key, [])
+    if len(pool) < count:
+        pool = pool + GENERIC_QUESTIONS
+
+    selected = sample(pool, min(count, len(pool)))
+    # Assign types rotation: 0=behavioral, 1-2=technical, 3=situational, 4=behavioral...
+    type_pattern = ["behavioral", "technical", "technical", "situational", "behavioral",
+                    "technical", "behavioral", "technical", "situational", "technical",
+                    "behavioral", "technical", "situational", "behavioral", "technical"]
+    return [
+        {"question_text": q, "type": type_pattern[i % len(type_pattern)], "difficulty": "intermediate"}
+        for i, q in enumerate(selected)
+    ]
+
+
+def _find_job_slug(title: str) -> str:
+    """Map a job title to a slug key in ROLE_QUESTION_POOLS."""
+    title_lower = title.lower()
+    if "backend" in title_lower or "python" in title_lower:
+        return "backend_dev"
+    if "ai" in title_lower or "computer vision" in title_lower or "machine learning" in title_lower:
+        return "ai_engineer"
+    if "flutter" in title_lower or "mobile" in title_lower:
+        return "flutter_dev"
+    if "frontend" in title_lower or "react" in title_lower:
+        return "frontend_dev"
+    if "graphic" in title_lower or "designer" in title_lower or "visual" in title_lower:
+        return "graphic_designer"
+    if "digital" in title_lower or "marketing" in title_lower or "seo" in title_lower or "social media" in title_lower:
+        return "digital_marketing"
+    return ""
+
+
 def _create_session(session_data):
     user_id = get_jwt_identity()
+    print(f"[DEBUG] _create_session: user_id={user_id}, data={session_data}")
 
     position_id = session_data.get("position_id")
     job = None
     if position_id is not None:
         job = db.session.get(JobPosition, position_id)
+        print(f"[DEBUG] _create_session: lookup by position_id={position_id} -> {job.title if job else None}")
     if job is None:
         job_field = session_data.get("job_field", "")
         job = JobPosition.query.filter(
             JobPosition.title.ilike(f"%{job_field}%")
         ).first()
+        print(f"[DEBUG] _create_session: lookup by job_field='{job_field}' -> {job.title if job else None}")
     if job is None:
         job = JobPosition.query.first()
+        print(f"[DEBUG] _create_session: fallback first job -> {job.title if job else None}")
     if job is None:
+        print("[DEBUG] _create_session: NO JOB POSITION FOUND — aborting")
         abort(400, message="No job position found. Please set up job positions first.")
 
     latest_model = AIModel.query.order_by(AIModel.created_at.desc()).first()
     ui_defaults = {"quick": 5, "standard": 10, "full": 15}
     session_type = session_data.get("session_type", "standard")
+    desired_count = session_data.get("max_questions", ui_defaults.get(session_type, 10))
+    print(f"[DEBUG] _create_session: session_type={session_type}, desired_count={desired_count}")
 
     session = InterviewSession(
         user_id=user_id,
@@ -162,14 +294,33 @@ def _create_session(session_data):
         ai_model_id=latest_model.id if latest_model else None,
         status="in_progress",
         session_type=session_type,
-        max_questions=session_data.get("max_questions", ui_defaults.get(session_type, 10)),
+        max_questions=desired_count,
         analysis_results={},
     )
     db.session.add(session)
     db.session.commit()
 
+    # Generate diverse questions for this session
+    # Pass the original job_field from the request so AI generates role-specific questions
+    original_job_field = session_data.get("job_field", "")
+    print(f"[DEBUG] _create_session: generating {desired_count} questions for job_field='{original_job_field}'")
+    questions = _generate_session_questions(session, desired_count, job_field_override=original_job_field)
+    print(f"[DEBUG] _create_session: generated {len(questions)} questions")
+    for i, q_data in enumerate(questions):
+        print(f"[DEBUG] _create_session: question {i+1}: type={q_data.get('type')}, text={q_data['question_text'][:60]}...")
+        q = InterviewQuestion(
+            question_text=q_data["question_text"],
+            difficulty=q_data.get("difficulty", "intermediate"),
+            session_id=session.id,
+        )
+        db.session.add(q)
+    db.session.flush()
+
     _save_mind_state(session, _build_mind_state(session))
     db.session.commit()
+
+    # Attach generated questions to session for the response
+    session._generated_questions = questions
     return session
 
 
@@ -181,26 +332,55 @@ class SessionCreate(MethodView):
         user_id = int(get_jwt_identity())
         sessions = (
             InterviewSession.query
-            .filter_by(user_id=user_id)
+            .filter_by(user_id=user_id, status="completed")
             .order_by(InterviewSession.start_time.desc())
             .all()
         )
+        print(f"[DEBUG] GET /sessions: user={user_id}, found {len(sessions)} completed sessions")
+        for s in sessions:
+            print(f"[DEBUG]   session id={s.id}, type={s.session_type}, status={s.status}, score={s.overall_score}, duration={s.duration}")
         return {"sessions": sessions}
 
-    @jwt_required()
-    @sessions_bp.arguments(SessionCreateSchema)
-    @sessions_bp.response(201, SessionSchema)
     def post(self, session_data):
-        return _create_session(session_data)
+        session = _create_session(session_data)
+        questions = getattr(session, '_generated_questions', [])
+        questions_data = [
+            {"id": i + 1, "question_text": q["question_text"], "type": q.get("type", "technical")}
+            for i, q in enumerate(questions)
+        ]
+        return {
+            "success": True,
+            "id": session.id,
+            "session_id": session.id,
+            "data": {
+                "session_id": session.id,
+                "expires_at": session.end_time.isoformat() if session.end_time else None,
+                "questions": questions_data,
+            },
+        }, 201
 
 
 @sessions_bp.route("/start")
 class SessionStartCompatibility(MethodView):
     @jwt_required()
     @sessions_bp.arguments(SessionCreateSchema)
-    @sessions_bp.response(201, SessionSchema)
     def post(self, session_data):
-        return _create_session(session_data)
+        session = _create_session(session_data)
+        questions = getattr(session, '_generated_questions', [])
+        questions_data = [
+            {"id": i + 1, "question_text": q["question_text"], "type": q.get("type", "technical")}
+            for i, q in enumerate(questions)
+        ]
+        return {
+            "success": True,
+            "id": session.id,
+            "session_id": session.id,
+            "data": {
+                "session_id": session.id,
+                "expires_at": session.end_time.isoformat() if session.end_time else None,
+                "questions": questions_data,
+            },
+        }, 201
 
 
 @sessions_bp.route("/<int:session_id>/questions/next")
@@ -302,6 +482,10 @@ class SessionCancel(MethodView):
 
         session.status = "cancelled"
         session.end_time = datetime.utcnow()
+
+        if session.start_time and session.end_time:
+            delta = session.end_time - session.start_time
+            session.duration = int(delta.total_seconds())
 
         state = _build_mind_state(session)
         state["is_finished"] = True
@@ -626,6 +810,14 @@ class SessionComplete(MethodView):
         session.status = "completed"
         session.end_time = datetime.utcnow()
 
+        # Calculate real duration from start to end
+        if session.start_time and session.end_time:
+            delta = session.end_time - session.start_time
+            session.duration = int(delta.total_seconds())
+            print(f"[DEBUG] Session {session_id} duration: start={session.start_time}, end={session.end_time}, delta_sec={session.duration}")
+        else:
+            print(f"[DEBUG] Session {session_id} duration: missing start_time or end_time, skipping")
+
         state = _build_mind_state(session)
         state["is_finished"] = True
         _save_mind_state(session, state)
@@ -648,3 +840,16 @@ class SessionFinalizeCompatibility(MethodView):
         SessionComplete().post(session_id)
         session = db.session.get(InterviewSession, session_id)
         return session
+
+
+@sessions_bp.route("/<int:session_id>")
+class SessionDelete(MethodView):
+    @jwt_required()
+    @sessions_bp.response(200, SessionDeleteResponseSchema)
+    def delete(self, session_id):
+        session = _get_session_for_user(session_id)
+        print(f"[DEBUG] DELETE /sessions/{session_id}: user={session.user_id}, status={session.status}, type={session.session_type}")
+        db.session.delete(session)
+        db.session.commit()
+        print(f"[DEBUG] DELETE /sessions/{session_id}: deleted successfully")
+        return {"success": True, "message": "Session deleted"}

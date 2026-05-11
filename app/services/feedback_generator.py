@@ -1,11 +1,13 @@
 import os
 import json
 import logging
+from pathlib import Path
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from app.models import db, Feedback, Answer
 
-load_dotenv()
+dotenv_path = Path(__file__).resolve().parent.parent.parent / '.env'
+load_dotenv(dotenv_path=dotenv_path)
 
 class FeedbackGenerator:
     @staticmethod

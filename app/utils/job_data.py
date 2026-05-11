@@ -28,7 +28,35 @@ JOB_ROLES = {
             {"name": "Algorithm Design", "level": "Intermediate"},
             {"name": "System Design Basics", "level": "Beginner"},
             {"name": "Problem Solving", "level": "Advanced"},
-            {"name": "Communication", "level": "Intermediate"}
+            {"name": "Communication", "level": "Advanced"}
+        ],
+        "questions": [
+            # Technical
+            "How do you design a RESTful API endpoint that handles pagination, filtering, and sorting efficiently?",
+            "Explain how SQLAlchemy's lazy loading differs from eager loading and when you would use each.",
+            "What strategies do you use to prevent SQL injection and other common security vulnerabilities in a Flask application?",
+            "Describe how you would implement a background job queue using Celery in a Python web application.",
+            "How do you handle database migrations in a production environment with zero downtime?",
+            "Explain the difference between PostgreSQL and MySQL and when you would choose one over the other.",
+            "How would you structure a Flask application to follow the Model-View-Controller pattern effectively?",
+            "What is your approach to caching frequently accessed data using Redis, and what invalidation strategies do you use?",
+            "Describe how JWT authentication works end-to-end in a REST API.",
+            "How would you design a rate-limiting mechanism for a public API endpoint?",
+            "Explain how you would containerize a Flask application with Docker and set up a CI/CD pipeline.",
+            "What factors do you consider when designing the schema for a relational database?",
+            "How do you handle file uploads securely in a web application?",
+            "Describe a situation where you had to optimize a slow database query — what steps did you take?",
+            # Behavioral
+            "Tell me about a time you had to debug a complex production issue that affected multiple users.",
+            "Describe a project where you collaborated with frontend developers to integrate APIs you built.",
+            "Tell me about a situation where you had to choose between a quick fix and a proper architectural solution.",
+            "How do you stay updated with new backend technologies and best practices?",
+            "Describe a time when you improved the performance of an existing system significantly.",
+            # Situational
+            "If you inherited a legacy codebase with no tests and tight deadlines, how would you approach adding test coverage?",
+            "How would you handle a scenario where an API you designed needs to support both REST and GraphQL?",
+            "If your production database suddenly slowed down during peak traffic, what steps would you take to diagnose and resolve it?",
+            "Suppose a third-party API your application depends on goes down — how would you design your system to handle this gracefully?",
         ]
     },
 
@@ -62,6 +90,34 @@ JOB_ROLES = {
             {"name": "Data Annotation", "level": "Intermediate"},
             {"name": "Research Skills", "level": "Intermediate"},
             {"name": "Critical Thinking", "level": "Advanced"}
+        ],
+        "questions": [
+            # Technical
+            "Explain how a Convolutional Neural Network processes an image from input to classification.",
+            "How would you handle class imbalance in a dataset when training a classification model?",
+            "Describe the difference between object detection and image segmentation and when to use each.",
+            "What data preprocessing steps do you typically apply before training a computer vision model?",
+            "How does transfer learning work and why is it useful when training deep learning models?",
+            "Explain how you would evaluate the performance of a facial emotion recognition model beyond just accuracy.",
+            "What is the role of attention mechanisms in transformer-based NLP models?",
+            "How would you optimize a PyTorch model for inference on edge devices with limited resources?",
+            "Describe how you would set up a data pipeline for training a real-time object detection system.",
+            "What techniques do you use to reduce overfitting in deep neural networks?",
+            "Explain the trade-offs between using ONNX and TensorFlow Lite for model deployment.",
+            "How would you implement a real-time video analysis pipeline that processes frames at 30 FPS?",
+            "Describe how you would use MediaPipe for real-time hand tracking and gesture recognition.",
+            "What approaches would you take to improve the accuracy of an existing emotion recognition model?",
+            # Behavioral
+            "Tell me about a machine learning project you worked on from data collection to deployment.",
+            "Describe a time when a model you built did not perform as expected in production — how did you diagnose and fix it?",
+            "How do you approach reading and implementing research papers in your work?",
+            "Tell me about a situation where you had to explain a complex AI concept to a non-technical stakeholder.",
+            "How do you ensure your AI models are fair and unbiased?",
+            # Situational
+            "If you needed to deploy a computer vision model on a low-power mobile device, what trade-offs would you consider?",
+            "How would you design a system that performs real-time emotion recognition from a webcam feed with minimal latency?",
+            "Suppose your team's ML model accuracy improved on the test set but decreased on new real-world data — what would you investigate?",
+            "If you had to build a face recognition system that works across different lighting conditions and angles, how would you approach it?",
         ]
     },
 
@@ -95,6 +151,34 @@ JOB_ROLES = {
             {"name": "Debugging", "level": "Advanced"},
             {"name": "Problem Solving", "level": "Advanced"},
             {"name": "Collaboration", "level": "Advanced"}
+        ],
+        "questions": [
+            # Technical
+            "Explain the widget lifecycle in Flutter and when each lifecycle method is called.",
+            "How do you manage state in a complex Flutter application, and what factors influence your choice of state management solution?",
+            "Describe how you would integrate Firebase Authentication and Firestore in a Flutter app.",
+            "What is the difference between Provider and Riverpod, and when would you use each?",
+            "How do you handle JSON serialization and deserialization in Dart effectively?",
+            "Explain how you would implement a custom animated widget in Flutter.",
+            "What strategies do you use to ensure a Flutter app performs well on low-end devices?",
+            "Describe how you would implement offline data persistence using SQLite in a Flutter app.",
+            "How would you structure a large Flutter application following Clean Architecture principles?",
+            "Explain how dependency injection works in Flutter and what tools you have used for it.",
+            "How do you handle deep linking and push notifications in a Flutter mobile app?",
+            "Describe your approach to building responsive layouts that work across phones, tablets, and different screen orientations.",
+            "What testing strategies do you use for Flutter apps, and how do you decide what to unit test versus widget test?",
+            "How would you implement a real-time chat feature in a Flutter application using WebSockets?",
+            # Behavioral
+            "Tell me about a Flutter project where you had to make trade-offs between development speed and code quality.",
+            "Describe a time when you had to debug a difficult UI issue that only appeared on specific devices.",
+            "How do you approach learning new Flutter packages or tools before using them in a project?",
+            "Tell me about a situation where you had to optimize a Flutter app that was experiencing janky animations.",
+            "How do you ensure a consistent user experience across both iOS and Android platforms in Flutter?",
+            # Situational
+            "If your Flutter app experienced a memory leak that caused crashes after extended use, how would you diagnose and fix it?",
+            "How would you design a Flutter app architecture that needs to support both mobile and web from the same codebase?",
+            "Suppose you need to add a complex animation to an existing screen — how would you approach implementing it without affecting the screen's performance?",
+            "If your team's Flutter app was receiving poor app store reviews due to slow load times, what steps would you take to improve perceived performance?",
         ]
     },
 
@@ -128,6 +212,152 @@ JOB_ROLES = {
             {"name": "State Management", "level": "Advanced"},
             {"name": "Cross-Browser Compatibility", "level": "Advanced"},
             {"name": "Team Communication", "level": "Advanced"}
+        ],
+        "questions": [
+            # Technical
+            "Explain how React's Virtual DOM works and why it improves rendering performance.",
+            "What is the difference between controlled and uncontrolled components in React, and when would you use each?",
+            "How do you manage global state in a large React application, and what factors guide your choice of state management library?",
+            "Describe how React Query differs from Redux for data fetching and when you would prefer one over the other.",
+            "How would you implement server-side rendering in a React application using Next.js?",
+            "Explain the concept of code splitting in React and how it improves application performance.",
+            "What strategies do you use to ensure a web application is accessible according to WCAG guidelines?",
+            "Describe how you would optimize a React application that renders a large list of items with frequent updates.",
+            "How does TypeScript improve the development experience in a React project?",
+            "Explain the difference between CSS modules, styled-components, and Tailwind CSS — when would you choose each?",
+            "How would you implement client-side routing with authentication guards in React?",
+            "Describe your approach to making a complex web application responsive across all device sizes.",
+            "What testing strategy do you follow for a React application, and how do you decide what to test at each level?",
+            "How do you handle API request caching and optimistic updates in a React application?",
+            # Behavioral
+            "Tell me about a challenging UI problem you solved and the approach you took to implement the solution.",
+            "Describe a time when you had to refactor a large, messy component into maintainable code.",
+            "How do you keep up with the rapidly changing frontend ecosystem and decide which tools to adopt?",
+            "Tell me about a situation where you had to advocate for accessibility improvements in a project.",
+            "Describe a project where you collaborated closely with designers and backend developers — what was your workflow?",
+            # Situational
+            "If a critical bug was found in production that only occurs on a specific browser version, how would you debug and fix it?",
+            "How would you redesign a legacy jQuery application to modern React without a complete rewrite?",
+            "Suppose your application's bundle size has grown too large and page load times are suffering — what specific steps would you take to reduce it?",
+            "If you joined a team mid-project and the React codebase had inconsistent patterns and no documentation, how would you approach contributing?",
         ]
-    }
+    },
+
+    "graphic_designer": {
+        "title": "Graphic Designer",
+        "level": "Junior",
+        "description": "Creates visual concepts, layouts, and designs for digital and print media.",
+        "skills": [
+            {"name": "Adobe Photoshop", "level": "Advanced"},
+            {"name": "Adobe Illustrator", "level": "Advanced"},
+            {"name": "Adobe InDesign", "level": "Intermediate"},
+            {"name": "Figma", "level": "Intermediate"},
+            {"name": "Branding", "level": "Advanced"},
+            {"name": "Typography", "level": "Advanced"},
+            {"name": "Color Theory", "level": "Advanced"},
+            {"name": "Composition", "level": "Advanced"},
+            {"name": "Layout Design", "level": "Advanced"},
+            {"name": "Visual Hierarchy", "level": "Advanced"},
+            {"name": "Print Design", "level": "Intermediate"},
+            {"name": "Social Media Design", "level": "Intermediate"},
+            {"name": "Logo Design", "level": "Advanced"},
+            {"name": "Packaging Design", "level": "Intermediate"},
+            {"name": "Design Thinking", "level": "Intermediate"},
+            {"name": "Communication", "level": "Advanced"},
+            {"name": "Creativity", "level": "Advanced"}
+        ],
+        "questions": [
+            "Walk me through your design process from receiving a brief to delivering the final assets.",
+            "How do you approach creating a brand identity, and which tools in Adobe Creative Suite do you rely on most?",
+            "Tell me about a time a client rejected your design concept — how did you handle the feedback and revise your work?",
+            "How do you ensure your designs are accessible and inclusive for diverse audiences?",
+            "Describe a project where you used typography and color theory to guide the user's emotional response.",
+            "How do you balance creativity with brand guidelines when designing for an established company?",
+            "Tell me about a time you had to work under a tight deadline — how did you prioritize and deliver quality work?",
+            "How do you stay updated with current design trends and incorporate them into your work?",
+            "Describe a situation where you had to explain a design decision to a non-designer stakeholder.",
+            "What role does user research play in your design process, and how do you validate your design choices?",
+            "How would you redesign an existing brand's visual identity while keeping its core recognition?",
+            "Tell me about a project where you collaborated with copywriters, photographers, or developers.",
+            "How do you approach designing for both print and digital formats from the same concept?",
+            "Describe a time you used data or analytics to inform a design decision.",
+            "What is your favorite design project you have worked on and why did it stand out to you?"
+        ]
+    },
+
+    "digital_marketing": {
+        "title": "Digital Marketing Specialist",
+        "level": "Junior",
+        "description": "Plans and executes digital marketing campaigns across multiple channels.",
+        "skills": [
+            {"name": "SEO", "level": "Advanced"},
+            {"name": "Meta Ads", "level": "Advanced"},
+            {"name": "Google Ads", "level": "Advanced"},
+            {"name": "Google Analytics", "level": "Advanced"},
+            {"name": "Content Strategy", "level": "Advanced"},
+            {"name": "Email Marketing", "level": "Intermediate"},
+            {"name": "Social Media Marketing", "level": "Advanced"},
+            {"name": "Conversion Optimization", "level": "Intermediate"},
+            {"name": "A/B Testing", "level": "Intermediate"},
+            {"name": "CRM Tools", "level": "Intermediate"},
+            {"name": "Keyword Research", "level": "Advanced"},
+            {"name": "Campaign Analytics", "level": "Advanced"},
+            {"name": "Content Planning", "level": "Advanced"},
+            {"name": "Marketing Automation", "level": "Intermediate"},
+            {"name": "Brand Strategy", "level": "Intermediate"},
+            {"name": "Communication", "level": "Advanced"},
+            {"name": "Data Analysis", "level": "Intermediate"}
+        ],
+        "questions": [
+            "How do you structure a multi-channel campaign from planning through to performance analysis?",
+            "Walk me through how you would optimize a Google Ads campaign that is exceeding budget but underperforming on conversions.",
+            "Tell me about a time you used A/B testing to improve email open rates — what did you change and what were the results?",
+            "How do you attribute conversions across multiple touchpoints in a customer journey?",
+            "Describe how you would create a content calendar aligned with both SEO goals and seasonal business objectives.",
+            "How do you measure the success of a social media campaign beyond just likes and shares?",
+            "Tell me about a campaign that didn't perform as expected — how did you diagnose the issue and pivot?",
+            "How do you approach keyword research for a new website in a competitive industry?",
+            "Describe your process for creating an email drip campaign from list segmentation to performance review.",
+            "How do you stay updated with changes to search engine algorithms and ad platform policies?",
+            "Tell me about a time you used data from Google Analytics to inform a marketing strategy change.",
+            "How would you allocate budget across Meta Ads, Google Ads, and content marketing for a product launch?",
+            "Describe a situation where you had to persuade a stakeholder to invest in a long-term SEO strategy over short-term paid ads.",
+            "How do you ensure brand consistency across different marketing channels and campaign types?",
+            "Walk me through how you would set up tracking and reporting for a new campaign from scratch."
+        ]
+    },
+
 }
+
+# Map job title slugs to their question pools for dynamic fallback selection
+ROLE_QUESTION_POOLS = {
+    "backend_dev": JOB_ROLES["backend_dev"]["questions"],
+    "ai_engineer": JOB_ROLES["ai_engineer"]["questions"],
+    "flutter_dev": JOB_ROLES["flutter_dev"]["questions"],
+    "frontend_dev": JOB_ROLES["frontend_dev"]["questions"],
+    "graphic_designer": JOB_ROLES["graphic_designer"]["questions"],
+    "digital_marketing": JOB_ROLES["digital_marketing"]["questions"],
+}
+
+# Role-specific skills for AI prompt context (used when DB has no matching JobPosition)
+ROLE_SKILLS = {
+    "backend_dev": ["Python", "Flask", "SQLAlchemy", "RESTful APIs", "PostgreSQL", "MySQL", "Redis", "Docker", "Git", "JWT Authentication", "Unit Testing", "Microservices", "CI/CD", "Problem Solving"],
+    "ai_engineer": ["Python", "PyTorch", "TensorFlow", "OpenCV", "MediaPipe", "NumPy", "Computer Vision", "Deep Learning", "NLP", "Machine Learning", "Model Optimization", "ONNX", "Object Detection", "Emotion Recognition"],
+    "flutter_dev": ["Dart", "Flutter SDK", "Widget Lifecycle", "State Management", "Firebase", "REST API Integration", "SQLite", "UI/UX Principles", "Responsive Design", "Clean Architecture", "Animations", "App Deployment"],
+    "frontend_dev": ["JavaScript", "TypeScript", "React.js", "HTML5", "CSS3", "Redux", "Responsive Design", "Web Performance", "Accessibility", "REST APIs", "State Management", "Component Design", "Testing"],
+    "graphic_designer": ["Adobe Photoshop", "Adobe Illustrator", "Adobe InDesign", "Figma", "Branding", "Typography", "Color Theory", "Composition", "Layout Design", "Visual Hierarchy", "Print Design", "Social Media Design", "Logo Design", "Packaging Design", "Design Thinking"],
+    "digital_marketing": ["SEO", "Meta Ads", "Google Ads", "Google Analytics", "Content Strategy", "Email Marketing", "Social Media Marketing", "Conversion Optimization", "A/B Testing", "CRM Tools", "Keyword Research", "Campaign Analytics", "Content Planning", "Marketing Automation", "Brand Strategy"],
+}
+
+GENERIC_QUESTIONS = [
+    "Tell me about your background and what led you to pursue this career path.",
+    "Describe a challenging project you worked on recently and how you overcame obstacles.",
+    "How do you approach learning new technologies and staying current in your field?",
+    "Tell me about a time you received constructive criticism and how you responded to it.",
+    "Describe a situation where you had to work under pressure to meet a tight deadline.",
+    "What do you consider your greatest professional achievement so far?",
+    "How do you prioritize tasks when you have multiple competing deadlines?",
+    "Tell me about a time you had to explain a technical concept to someone with a non-technical background.",
+    "Describe a situation where you disagreed with a team member on a technical approach — how was it resolved?",
+    "What are your long-term career goals and how does this role align with them?",
+]

@@ -8,6 +8,8 @@ class Config:
     #Database and security
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-jwt")
+    JWT_ACCESS_TOKEN_EXPIRES = 60 * 60 * 24  # 24 hours
+    JWT_REFRESH_TOKEN_EXPIRES = 60 * 60 * 24 * 30  # 30 days
     SQLALCHEMY_DATABASE_URI = (
         "sqlite:///" +
         os.path.join(INSTANCE_PATH, "app.db")

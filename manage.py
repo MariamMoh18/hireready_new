@@ -11,7 +11,7 @@ if BASE_DIR not in sys.path:
 # 3. Now perform imports
 from app import create_app
 from app.models import db, JobPosition, Skill
-from app.utils.job_data import JOB_ROLES
+from app.utils.job_data import JOB_ROLES, ROLE_SKILLS
 
 app = create_app()
 

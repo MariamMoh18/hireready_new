@@ -28,6 +28,7 @@ from .user_schema import (
     AudioAnswerFormSchema,
     VideoAnalysisSchema, 
     VideoResponseSchema,
+    SessionDeleteResponseSchema,
     SessionFinalizeSchema,
     ChunkUploadFormSchema,
     ChunkUploadFileSchema,

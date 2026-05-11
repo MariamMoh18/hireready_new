@@ -352,6 +352,10 @@ class SessionReportSchema(Schema):
     analysis_results = fields.Dict()
     answers = fields.List(fields.Nested(ReportItemSchema))
 
+class SessionDeleteResponseSchema(Schema):
+    success = fields.Bool()
+    message = fields.Str()
+
 class SessionFinalizeSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = InterviewSession

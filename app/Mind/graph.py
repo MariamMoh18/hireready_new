@@ -1,13 +1,15 @@
 import os
 import json
+from pathlib import Path
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 
 from .state import InterviewState
-from .prompts import INTERVIEWER_SYSTEM, FINAL_REPORT_SYSTEM
+from .prompts import INTERVIEWER_SYSTEM, FINAL_REPORT_SYSTEM, BATCH_GENERATE_SYSTEM
 
-load_dotenv()
+dotenv_path = Path(__file__).resolve().parent.parent.parent / '.env'
+load_dotenv(dotenv_path=dotenv_path)
 
 _llm = None
 
@@ -15,9 +17,11 @@ def get_llm():
     global _llm
     if _llm is None:
         _llm = ChatOpenAI(
-            model="gpt-5-mini",
+            model="gpt-4o-mini",
             temperature=0.4,
-            api_key=os.environ.get("OPENAI_API_KEY")
+            api_key=os.environ.get("OPENAI_API_KEY"),
+            timeout=10,
+            max_retries=1,
         )
     return _llm
 
@@ -89,6 +93,34 @@ def ask_question(state: InterviewState) -> dict:
         "current_question": q,
         "messages": updated_messages,        # full history preserved
     }
+
+def generate_batch_questions(job_title: str, job_level: str, job_skills: list, count: int = 5) -> list[str]:
+    """Generate a batch of diverse interview questions using AI."""
+    try:
+        msgs = [
+            {"role": "system", "content": BATCH_GENERATE_SYSTEM.format(
+                job_title=job_title,
+                job_level=job_level or "Junior",
+                job_skills=", ".join(job_skills) if job_skills else "general skills",
+                count=count,
+            )}
+        ]
+        resp = get_llm().invoke(msgs).content.strip()
+        # Clean markdown fences if present
+        if resp.startswith("```"):
+            resp = resp.split("\n", 1)[-1]
+            resp = resp.rsplit("\n", 1)[0]
+        if resp.startswith("```json"):
+            resp = resp[7:]
+            resp = resp.rsplit("```", 1)[0]
+        questions = json.loads(resp)
+        if not isinstance(questions, list):
+            return []
+        return [q.strip() for q in questions if isinstance(q, str) and q.strip()]
+    except Exception as e:
+        print(f"Batch question generation failed: {e}")
+        return []
+
 
 def build_graph():
     workflow = StateGraph(InterviewState)
