@@ -11,7 +11,7 @@ class ApiService {
   );
 
   // Default to loopback and use adb reverse for Android physical devices.
-  static const String _deviceUrl = 'http://192.168.1.7:5000';
+  static const String _deviceUrl = 'http://192.168.1.12:5000';
   static const String _webUrl = 'http://localhost:5000';
 
   static String get baseUrl {
